@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#DD09211E"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/tv_next_prayer_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="الصلاة القادمة / Next Prayer"
+        android:textColor="#D4AF37"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/tv_next_prayer_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="العصر"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_remaining_countdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="متبقي 01:24:35"
+        android:textColor="#80FFDF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+</LinearLayout>

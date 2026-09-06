@@ -1,0 +1,6 @@
+{
+  "name": "Prayer Time & Adhan",
+  "description": "تطبيق أذان ومواقيت صلاة احترافي بساعة مسجد إلكترونية حديثة، دعم اللغات، التنبيهات المخصصة، فيديو الأذان والمسحراتي، إشعار دائم، وودجات الشاشة الرئيسية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
