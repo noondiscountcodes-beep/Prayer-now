@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     // Dynamic notification triggers
     private val pendingVideoPrayerState = mutableStateOf<String?>(null)
     private val pendingMusaharatiState = mutableStateOf(false)
+    private val pendingAdhanScreenPrayer = mutableStateOf<String?>(null)
     private val initialMenuTabState = mutableStateOf(MenuTab.LANGUAGE)
     private val screenState = mutableStateOf(ScreenState.MOSQUE_CLOCK)
 
@@ -120,6 +121,20 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+
+                        // Trigger Adhan Full-Screen Dialog
+                        pendingAdhanScreenPrayer.value?.let { prayerStr ->
+                            val pt = try { com.example.engine.PrayerType.valueOf(prayerStr) } catch (e: Exception) { com.example.engine.PrayerType.FAJR }
+                            com.example.ui.AdhanScreenDialog(
+                                prayer = pt,
+                                prefs = prefs,
+                                onDismiss = { pendingAdhanScreenPrayer.value = null },
+                                onOpenDuaVideo = { uri ->
+                                    pendingAdhanScreenPrayer.value = null
+                                    pendingVideoPrayerState.value = prayerStr
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -135,8 +150,13 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
         val prayerVideo = intent.getStringExtra("TRIGGER_ADHAN_VIDEO")
+        val adhanScreen = intent.getStringExtra("TRIGGER_ADHAN_SCREEN")
         val musaharati = intent.getBooleanExtra("TRIGGER_MUSAHARATI_VIDEO", false)
         val openTab = intent.getStringExtra("OPEN_TAB")
+
+        if (adhanScreen != null) {
+            pendingAdhanScreenPrayer.value = adhanScreen
+        }
 
         if (prayerVideo != null) {
             pendingVideoPrayerState.value = prayerVideo

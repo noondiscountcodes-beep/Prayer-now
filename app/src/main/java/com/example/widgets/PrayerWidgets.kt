@@ -10,6 +10,7 @@ import com.example.MainActivity
 import com.example.R
 import com.example.data.AppPreferences
 import com.example.engine.HijriCalendarHelper
+import com.example.engine.PrayerBannerHelper
 import com.example.engine.PrayerDaySchedule
 import com.example.engine.PrayerTimesCalculator
 import com.example.localization.AppStrings
@@ -63,28 +64,6 @@ class NextPrayerWidget : AppWidgetProvider() {
 class PrayerTimesWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         val prefs = AppPreferences(context)
-        val lang = prefs.getLanguage()
-        val cal = Calendar.getInstance(prefs.getTimezone())
-
-        val schedule = PrayerTimesCalculator.calculate(
-            year = cal.get(Calendar.YEAR),
-            month = cal.get(Calendar.MONTH) + 1,
-            day = cal.get(Calendar.DAY_OF_MONTH),
-            latitude = prefs.getLatitude(),
-            longitude = prefs.getLongitude(),
-            timezone = prefs.getTimezone(),
-            dstSetting = prefs.getDstSetting(),
-            method = prefs.getCalculationMethod(),
-            madhab = prefs.getMadhab(),
-            customFajrAngle = prefs.getCustomFajrAngle(),
-            customIshaAngle = prefs.getCustomIshaAngle()
-        )
-
-        val now = System.currentTimeMillis()
-        val next = schedule.getNextPrayer(now)
-        val remainingSec = schedule.getRemainingSecondsToNext(now)
-        val remainingFormatted = PrayerDaySchedule.formatRemaining(remainingSec)
-
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             context, 1, intent,
@@ -93,14 +72,7 @@ class PrayerTimesWidget : AppWidgetProvider() {
 
         for (id in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.widget_prayer_times)
-            views.setTextViewText(R.id.tv_time_fajr, "${AppStrings.getPrayerName(com.example.engine.PrayerType.FAJR, lang)}\n${schedule.fajr.formattedTime24}")
-            views.setTextViewText(R.id.tv_time_dhuhr, "${AppStrings.getPrayerName(com.example.engine.PrayerType.DHUHR, lang)}\n${schedule.dhuhr.formattedTime24}")
-            views.setTextViewText(R.id.tv_time_asr, "${AppStrings.getPrayerName(com.example.engine.PrayerType.ASR, lang)}\n${schedule.asr.formattedTime24}")
-            views.setTextViewText(R.id.tv_time_maghrib, "${AppStrings.getPrayerName(com.example.engine.PrayerType.MAGHRIB, lang)}\n${schedule.maghrib.formattedTime24}")
-            views.setTextViewText(R.id.tv_time_isha, "${AppStrings.getPrayerName(com.example.engine.PrayerType.ISHA, lang)}\n${schedule.isha.formattedTime24}")
-
-            val nextName = AppStrings.getPrayerName(next.type, lang)
-            views.setTextViewText(R.id.tv_next_highlight, "${AppStrings.nextPrayer(lang)}: $nextName — $remainingFormatted")
+            PrayerBannerHelper.bindWidgetViews(context, views, prefs)
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
             appWidgetManager.updateAppWidget(id, views)
         }

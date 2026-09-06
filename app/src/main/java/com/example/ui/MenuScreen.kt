@@ -28,6 +28,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -74,6 +75,10 @@ fun MenuScreen(
     var previewVideoUri by remember { mutableStateOf<String?>(null) }
     var previewVideoTitle by remember { mutableStateOf("") }
     var showVideoPreviewDialog by remember { mutableStateOf(false) }
+
+    // Adhan full-screen preview state
+    var showAdhanScreenPreview by remember { mutableStateOf(false) }
+    var previewAdhanPrayer by remember { mutableStateOf(PrayerType.FAJR) }
 
     Scaffold(
         topBar = {
@@ -156,6 +161,10 @@ fun MenuScreen(
                             previewVideoUri = uri
                             previewVideoTitle = title
                             showVideoPreviewDialog = true
+                        },
+                        onPreviewAdhanScreen = { prayer ->
+                            previewAdhanPrayer = prayer
+                            showAdhanScreenPreview = true
                         }
                     )
                     MenuTab.RAMADAN -> RamadanTab(
@@ -180,6 +189,20 @@ fun MenuScreen(
             videoTitle = previewVideoTitle,
             language = language,
             onDismiss = { showVideoPreviewDialog = false }
+        )
+    }
+
+    if (showAdhanScreenPreview) {
+        AdhanScreenDialog(
+            prayer = previewAdhanPrayer,
+            prefs = prefs,
+            onDismiss = { showAdhanScreenPreview = false },
+            onOpenDuaVideo = { uri ->
+                showAdhanScreenPreview = false
+                previewVideoUri = uri
+                previewVideoTitle = "دعاء ما بعد الأذان"
+                showVideoPreviewDialog = true
+            }
         )
     }
 }
@@ -803,216 +826,21 @@ private fun AlertsTab(prefs: AppPreferences, language: AppLanguage) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 4. ADHAN TAB (5 PRAYERS VIDEO CUSTOMIZATION)
+// 4. ADHAN TAB (4 MAIN SECTIONS: AUDIO, ALERT, DUA, SCREEN)
 // ─────────────────────────────────────────────────────────────
 @Composable
 private fun AdhanTab(
     prefs: AppPreferences,
     language: AppLanguage,
-    onPreviewVideo: (uri: String?, title: String) -> Unit
+    onPreviewVideo: (uri: String?, title: String) -> Unit,
+    onPreviewAdhanScreen: (prayer: PrayerType) -> Unit
 ) {
-    val context = LocalContext.current
-    var selectedPrayerForPicker by remember { mutableStateOf<PrayerType?>(null) }
-
-    // Official Photo/Video Picker (Zero broad storage permissions!)
-    val videoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
-        val pt = selectedPrayerForPicker
-        if (uri != null && pt != null) {
-            val meta = MediaHelper.inspectMediaUri(context, uri, isExpectedVideo = true)
-            val cfg = AdhanVideoConfig(
-                uriString = uri.toString(),
-                fileName = meta.displayName,
-                durationMs = meta.durationMs,
-                sizeBytes = meta.sizeBytes,
-                isCompatible = meta.isCompatible,
-                isEnabled = true
-            )
-            prefs.setAdhanConfig(pt, cfg)
-            AlarmScheduler.scheduleAll(context)
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-    ) {
-        Text(
-            text = AppStrings.tabAdhan(language),
-            style = MaterialTheme.typography.titleLarge,
-            color = IslamicGoldPrimary,
-            fontWeight = FontWeight.Bold
-        )
-
-        // Privacy Banner
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F3029))
-        ) {
-            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = IslamicGoldLight, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (language.code == "ar")
-                        "فيديوهاتك آمنة ومحفوظة محليًا على جهازك فقط، ولا يتم رفعها أو مشاركتها مع أي جهة."
-                    else
-                        "Your videos are stored locally on your device only and are never uploaded or shared.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = IslamicGoldLight
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        val fivePrayers = listOf(PrayerType.FAJR, PrayerType.DHUHR, PrayerType.ASR, PrayerType.MAGHRIB, PrayerType.ISHA)
-
-        fivePrayers.forEach { prayer ->
-            val config = prefs.getAdhanConfig(prayer)
-            val hasVideo = config.uriString != null
-            val isAvailable = MediaHelper.isUriAvailable(context, config.uriString)
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MosqueCardBorder)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = AppStrings.getPrayerName(prayer, language),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Switch(
-                            checked = config.isEnabled,
-                            onCheckedChange = { checked ->
-                                prefs.setAdhanConfig(prayer, config.copy(isEnabled = checked))
-                                AlarmScheduler.scheduleAll(context)
-                            }
-                        )
-                    }
-
-                    if (hasVideo) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MosqueDarkSurfaceVariant)
-                                .padding(10.dp)
-                        ) {
-                            Text(
-                                text = "🎬 ${config.fileName ?: "video"}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = IslamicGoldLight
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "${if (language.code == "ar") "المدة" else "Duration"}: ${MediaHelper.formatDuration(config.durationMs)} • ${MediaHelper.formatFileSize(config.sizeBytes)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFFA5BFB9)
-                                )
-
-                                if (!isAvailable) {
-                                    Text(
-                                        text = if (language.code == "ar") "⚠️ الملف محذوف" else "⚠️ File missing",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                } else if (config.isCompatible) {
-                                    Text(
-                                        text = "✓ ${if (language.code == "ar") "متوافق" else "Compatible"}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = LedEmeraldAccent
-                                    )
-                                } else {
-                                    Text(
-                                        text = "✕ ${if (language.code == "ar") "غير متوافق" else "Incompatible"}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Video actions: Preview, Replace, Delete
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    onPreviewVideo(
-                                        config.uriString,
-                                        "${AppStrings.getPrayerName(prayer, language)} - Adhan Video"
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16473D))
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(AppStrings.preview(language), style = MaterialTheme.typography.bodySmall)
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    selectedPrayerForPicker = prayer
-                                    videoPicker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(AppStrings.replace(language), style = MaterialTheme.typography.bodySmall)
-                            }
-
-                            IconButton(
-                                onClick = { prefs.resetAdhanConfig(prayer) }
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = AppStrings.delete(language), tint = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            onClick = {
-                                selectedPrayerForPicker = prayer
-                                videoPicker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16473D))
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (language.code == "ar") "اختيار فيديو أذان من الهاتف" else "Select Adhan Video")
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(30.dp))
-    }
+    AdhanTabContent(
+        prefs = prefs,
+        language = language,
+        onPreviewVideo = onPreviewVideo,
+        onPreviewAdhanScreen = onPreviewAdhanScreen
+    )
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1372,34 +1200,138 @@ private fun NotificationBarTab(prefs: AppPreferences, language: AppLanguage) {
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Visual simulation of the Android notification
+        // Visual simulation of the Android notification & widget
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2624)),
-            shape = RoundedCornerShape(12.dp)
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E242B)),
+            shape = RoundedCornerShape(14.dp)
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Info, contentDescription = null, tint = IslamicGoldPrimary, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Prayer Time & Adhan • 15 Ramadan 1448", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            Column(modifier = Modifier.padding(8.dp)) {
+                // Top City & Mosque
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🕌", fontSize = 16.sp)
+                    Text(
+                        text = prefs.getCityName(),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
                 }
+
+                // Cyan Hero Banner
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color(0xFF007799), Color(0xFF0284C7), Color(0xFF00A8D6))
+                            )
+                        )
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (language.code == "ar") "+ ٤٧:٤٥" else "+ 47:45",
+                            color = Color.White,
+                            fontSize = 30.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (language.code == "ar") "الظهر" else "Dhuhr",
+                            color = Color.White,
+                            fontSize = 34.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "${AppStrings.nextPrayer(language)}: ${AppStrings.getPrayerName(PrayerType.ASR, language)}",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "${AppStrings.remaining(language)}: 01:24:35",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LedCyanGlow
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = {}) { Text(if (language.code == "ar") "فتح التطبيق" else "Open App", color = IslamicGoldPrimary) }
-                    TextButton(onClick = {}) { Text(if (language.code == "ar") "كتم/تفعيل" else "Mute/Unmute", color = Color.White) }
-                    TextButton(onClick = {}) { Text(if (language.code == "ar") "الأذان" else "Adhan", color = Color.White) }
+
+                // 5 Prayers Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    data class ColItem(val nameAr: String, val nameEn: String, val time: String, val badge: String?, val isActive: Boolean)
+                    val items = listOf(
+                        ColItem("العشاء", "Isha", "08:31 م", null, false),
+                        ColItem("المغرب", "Maghrib", "07:12 م", null, false),
+                        ColItem("العصر", "Asr", "04:26 م", if (language.code == "ar") "لاحقا" else "Next", false),
+                        ColItem("الظهر", "Dhuhr", "12:53 م", if (language.code == "ar") "الان" else "Now", true),
+                        ColItem("الفجر", "Fajr", "05:01 ص", null, false)
+                    )
+
+                    for (item in items) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (item.isActive) Color(0xFF00A3E0) else Color(0xFFDCE4EC)),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Badge
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(18.dp)
+                                    .background(if (item.badge != null) Color(0xFF0088BA) else Color.Transparent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (item.badge != null) {
+                                    Text(item.badge, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Text(
+                                text = if (language.code == "ar") item.nameAr else item.nameEn,
+                                color = if (item.isActive) Color.White else Color(0xFF334155),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                            Text(
+                                text = item.time,
+                                color = if (item.isActive) Color.White else Color(0xFF1E293B),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Bottom Dates Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "6-9-2026",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (language.code == "ar") "الأحد 24 ربيع الأول 1448" else "Sunday 24 Rabi' I 1448",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

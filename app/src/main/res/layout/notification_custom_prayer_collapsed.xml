@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_collapsed_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_widget_banner_cyan"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/notif_collapsed_diff"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="start|center_vertical"
+        android:text="+ ٤٧:٤٥"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="end|center_vertical"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/notif_collapsed_prayer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="الظهر"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notif_collapsed_city"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="الفجالة"
+            android:textColor="#E0F2FE"
+            android:textSize="11sp" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
+    android:id="@+id/notification_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/bg_widget_full_root"
+    android:layout_height="wrap_content"
+    android:background="#1E242B"
     android:orientation="vertical"
-    android:padding="6dp">
+    android:padding="4dp">
 
     <!-- Top City and Mosque Header -->
     <RelativeLayout
@@ -14,75 +14,74 @@
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
         android:paddingTop="2dp"
-        android:paddingBottom="4dp">
+        android:paddingBottom="2dp">
 
         <TextView
-            android:id="@+id/tv_city_name"
+            android:id="@+id/notif_city_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:text="الفجالة"
             android:textColor="#FFFFFF"
-            android:textSize="18sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tv_mosque_icon"
+            android:id="@+id/notif_mosque_icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
-            android:text="🕌"
-            android:textSize="16sp" />
+            android:text="🕌 مواقيت الصلاة"
+            android:textColor="#D4AF37"
+            android:textSize="13sp"
+            android:textStyle="bold" />
     </RelativeLayout>
 
     <!-- Cyan Hero Banner -->
     <LinearLayout
-        android:id="@+id/banner_hero"
+        android:id="@+id/notif_banner_hero"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_widget_banner_cyan"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp">
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
 
-        <!-- Time Diff / Countdown (+ 47:45) -->
         <TextView
-            android:id="@+id/tv_hero_diff"
+            android:id="@+id/notif_hero_diff"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="start|center_vertical"
             android:text="+ ٤٧:٤٥"
             android:textColor="#FFFFFF"
-            android:textSize="32sp"
+            android:textSize="26sp"
             android:textStyle="bold" />
 
-        <!-- Prayer Name (الظهر) -->
         <TextView
-            android:id="@+id/tv_hero_prayer"
+            android:id="@+id/notif_hero_prayer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="end|center_vertical"
             android:text="الظهر"
             android:textColor="#FFFFFF"
-            android:textSize="36sp"
+            android:textSize="28sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- 5 Prayers Grid (RTL: Fajr, Dhuhr, Asr, Maghrib, Isha) -->
-    <!-- Notice: in linear layout LTR, rightmost is end, leftmost is start. So from left to right: Isha, Maghrib, Asr, Dhuhr, Fajr -->
+    <!-- 5 Prayers Grid (Isha, Maghrib, Asr, Dhuhr, Fajr) -->
     <LinearLayout
-        android:id="@+id/grid_prayers"
+        android:id="@+id/notif_grid_prayers"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-        <!-- Column 5: Isha (العشاء) -->
+        <!-- Column 5: Isha -->
         <LinearLayout
-            android:id="@+id/col_isha"
+            android:id="@+id/notif_col_isha"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -90,41 +89,40 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/badge_isha"
+                android:id="@+id/notif_badge_isha"
                 android:layout_width="match_parent"
-                android:layout_height="18dp"
+                android:layout_height="16dp"
                 android:gravity="center"
                 android:text=""
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_name_isha"
+                android:id="@+id/notif_name_isha"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingTop="2dp"
                 android:text="العشاء"
                 android:textColor="#334155"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_time_isha"
+                android:id="@+id/notif_time_isha"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingBottom="4dp"
+                android:paddingBottom="2dp"
                 android:text="08:31 م"
                 android:textColor="#1E293B"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Column 4: Maghrib (المغرب) -->
+        <!-- Column 4: Maghrib -->
         <LinearLayout
-            android:id="@+id/col_maghrib"
+            android:id="@+id/notif_col_maghrib"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -132,41 +130,40 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/badge_maghrib"
+                android:id="@+id/notif_badge_maghrib"
                 android:layout_width="match_parent"
-                android:layout_height="18dp"
+                android:layout_height="16dp"
                 android:gravity="center"
                 android:text=""
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_name_maghrib"
+                android:id="@+id/notif_name_maghrib"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingTop="2dp"
                 android:text="المغرب"
                 android:textColor="#334155"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_time_maghrib"
+                android:id="@+id/notif_time_maghrib"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingBottom="4dp"
+                android:paddingBottom="2dp"
                 android:text="07:12 م"
                 android:textColor="#1E293B"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Column 3: Asr (العصر) -->
+        <!-- Column 3: Asr -->
         <LinearLayout
-            android:id="@+id/col_asr"
+            android:id="@+id/notif_col_asr"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -174,42 +171,41 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/badge_asr"
+                android:id="@+id/notif_badge_asr"
                 android:layout_width="match_parent"
-                android:layout_height="18dp"
+                android:layout_height="16dp"
                 android:background="@drawable/bg_badge_cyan"
                 android:gravity="center"
                 android:text="لاحقا"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_name_asr"
+                android:id="@+id/notif_name_asr"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingTop="2dp"
                 android:text="العصر"
                 android:textColor="#334155"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_time_asr"
+                android:id="@+id/notif_time_asr"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingBottom="4dp"
+                android:paddingBottom="2dp"
                 android:text="04:26 م"
                 android:textColor="#1E293B"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Column 2: Dhuhr (الظهر) - Active Column -->
+        <!-- Column 2: Dhuhr -->
         <LinearLayout
-            android:id="@+id/col_dhuhr"
+            android:id="@+id/notif_col_dhuhr"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -217,42 +213,41 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/badge_dhuhr"
+                android:id="@+id/notif_badge_dhuhr"
                 android:layout_width="match_parent"
-                android:layout_height="18dp"
+                android:layout_height="16dp"
                 android:background="@drawable/bg_badge_cyan"
                 android:gravity="center"
                 android:text="الان"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_name_dhuhr"
+                android:id="@+id/notif_name_dhuhr"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingTop="2dp"
                 android:text="الظهر"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_time_dhuhr"
+                android:id="@+id/notif_time_dhuhr"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingBottom="4dp"
+                android:paddingBottom="2dp"
                 android:text="12:53 م"
                 android:textColor="#FFFFFF"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Column 1: Fajr (الفجر) -->
+        <!-- Column 1: Fajr -->
         <LinearLayout
-            android:id="@+id/col_fajr"
+            android:id="@+id/notif_col_fajr"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -260,35 +255,34 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/badge_fajr"
+                android:id="@+id/notif_badge_fajr"
                 android:layout_width="match_parent"
-                android:layout_height="18dp"
+                android:layout_height="16dp"
                 android:gravity="center"
                 android:text=""
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_name_fajr"
+                android:id="@+id/notif_name_fajr"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingTop="2dp"
                 android:text="الفجر"
                 android:textColor="#334155"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_time_fajr"
+                android:id="@+id/notif_time_fajr"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:paddingBottom="4dp"
+                android:paddingBottom="2dp"
                 android:text="05:01 ص"
                 android:textColor="#1E293B"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
@@ -299,27 +293,27 @@
         android:layout_height="wrap_content"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="2dp">
+        android:paddingTop="3dp"
+        android:paddingBottom="1dp">
 
         <TextView
-            android:id="@+id/tv_gregorian_date"
+            android:id="@+id/notif_gregorian_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
             android:text="6-9-2026"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
+            android:textColor="#CBD5E1"
+            android:textSize="11sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tv_hijri_date"
+            android:id="@+id/notif_hijri_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:text="الأحد 24 ربيع الأول 1448"
             android:textColor="#FFFFFF"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
     </RelativeLayout>
 </LinearLayout>

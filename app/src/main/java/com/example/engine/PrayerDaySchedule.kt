@@ -53,6 +53,15 @@ data class PrayerDaySchedule(
         return fajr.copy(timestampMillis = fajr.timestampMillis + 24 * 60 * 60 * 1000L)
     }
 
+    fun getEntry(type: PrayerType): PrayerTimeEntry = when (type) {
+        PrayerType.FAJR -> fajr
+        PrayerType.SUNRISE -> sunrise
+        PrayerType.DHUHR -> dhuhr
+        PrayerType.ASR -> asr
+        PrayerType.MAGHRIB -> maghrib
+        PrayerType.ISHA -> isha
+    }
+
     fun getRemainingSecondsToNext(currentTimeMillis: Long): Long {
         val next = getNextPrayer(currentTimeMillis)
         val diffSec = (next.timestampMillis - currentTimeMillis) / 1000L

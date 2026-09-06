@@ -30,10 +30,11 @@ class AlarmReceiver : BroadcastReceiver() {
                 val prayerType = try { PrayerType.valueOf(prayerNameStr) } catch (e: Exception) { PrayerType.FAJR }
                 val localizedName = AppStrings.getPrayerName(prayerType, lang)
 
-                val adhanConfig = prefs.getAdhanConfig(prayerType)
+                val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
+                val duaConfig = adhanRepo.getDuaConfig(prayerType)
 
                 val openIntent = Intent(context, MainActivity::class.java).apply {
-                    putExtra("TRIGGER_ADHAN_VIDEO", prayerType.name)
+                    putExtra("TRIGGER_ADHAN_SCREEN", prayerType.name)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
                 val pendingIntent = PendingIntent.getActivity(
@@ -56,21 +57,49 @@ class AlarmReceiver : BroadcastReceiver() {
                     .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                     .setContentTitle(title)
                     .setContentText(message)
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
                     .setContentIntent(pendingIntent)
+                    .setFullScreenIntent(pendingIntent, true)
                     .setAutoCancel(true)
                     .setVibrate(longArrayOf(0, 500, 200, 500))
 
-                if (adhanConfig.uriString != null && MediaHelper.isUriAvailable(context, adhanConfig.uriString)) {
-                    val playLabel = if (lang.code == "ar") "تشغيل فيديو الأذان" else "Play Adhan Video"
-                    builder.addAction(android.R.drawable.ic_media_play, playLabel, pendingIntent)
-                }
+                val screenLabel = if (lang.code == "ar") "فتح شاشة الأذان" else "Open Adhan Screen"
+                builder.addAction(android.R.drawable.ic_menu_view, screenLabel, pendingIntent)
 
                 val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_ADHAN + prayerType.ordinal, builder.build())
 
-                // Play preview sound/tone if enabled
-                MediaHelper.playAudioPreview(context, adhanConfig.uriString)
+                // Play exact sequence: Prayer Time -> Alert Sound (if enabled) -> Adhan immediately -> Du'aa
+                AdhanSequencePlayer.playPrayerSequence(
+                    context = context,
+                    prayer = prayerType,
+                    onAdhanFinished = {
+                        // After Adhan completes: if Du'aa video is configured, post interactive notification
+                        if (duaConfig.isEnabled && !duaConfig.uriString.isNullOrBlank()) {
+                            val duaIntent = Intent(context, MainActivity::class.java).apply {
+                                putExtra("TRIGGER_ADHAN_VIDEO", prayerType.name)
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            }
+                            val duaPendingIntent = PendingIntent.getActivity(
+                                context,
+                                5000 + prayerType.ordinal,
+                                duaIntent,
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                            )
+                            val duaTitle = if (lang.code == "ar") "دعاء ما بعد الأذان" else "Post-Adhan Supplication"
+                            val duaMsg = if (lang.code == "ar") "اضغط لتشغيل فيديو دعاء صلاة $localizedName" else "Tap to play supplication video for $localizedName"
+                            val duaBuilder = NotificationCompat.Builder(context, PrayerNotificationHelper.CHANNEL_ADHAN)
+                                .setSmallIcon(android.R.drawable.ic_media_play)
+                                .setContentTitle(duaTitle)
+                                .setContentText(duaMsg)
+                                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                .setContentIntent(duaPendingIntent)
+                                .setAutoCancel(true)
+                            manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_ADHAN + 100 + prayerType.ordinal, duaBuilder.build())
+                        }
+                    }
+                )
 
                 // Reschedule next prayer
                 AlarmScheduler.scheduleAll(context)
