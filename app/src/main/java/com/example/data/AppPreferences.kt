@@ -55,6 +55,11 @@ class AppPreferences(private val context: Context) {
 
     fun notifyChanged() {
         _refreshTrigger.value = System.currentTimeMillis()
+        try {
+            com.example.widgets.WidgetSyncHelper.syncAll(context)
+        } catch (e: Exception) {
+            // Fallback safety
+        }
     }
 
     // Language
@@ -218,6 +223,13 @@ class AppPreferences(private val context: Context) {
         notifyChanged()
     }
 
+    // Hijri Adjustment Days (-2, -1, 0, +1, +2, etc.)
+    fun getHijriAdjustment(): Int = prefs.getInt("hijri_adjustment_days", 0)
+    fun setHijriAdjustment(days: Int) {
+        prefs.edit().putInt("hijri_adjustment_days", days).apply()
+        notifyChanged()
+    }
+
     // Musaharati Media
     fun getMusaharatiConfig(): AdhanVideoConfig {
         return AdhanVideoConfig(
@@ -239,6 +251,37 @@ class AppPreferences(private val context: Context) {
             .putBoolean("musaharati_compatible", config.isCompatible)
             .putBoolean("musaharati_enabled", config.isEnabled)
             .apply()
+        notifyChanged()
+    }
+
+    // Iftar Cannon Media & Settings
+    fun getIftarCannonConfig(): AdhanVideoConfig {
+        return AdhanVideoConfig(
+            uriString = prefs.getString("iftar_cannon_uri", null),
+            fileName = prefs.getString("iftar_cannon_name", null),
+            durationMs = prefs.getLong("iftar_cannon_duration", 0L),
+            sizeBytes = prefs.getLong("iftar_cannon_size", 0L),
+            isCompatible = prefs.getBoolean("iftar_cannon_compatible", true),
+            isEnabled = prefs.getBoolean("iftar_cannon_enabled", true)
+        )
+    }
+
+    fun setIftarCannonConfig(config: AdhanVideoConfig) {
+        prefs.edit()
+            .putString("iftar_cannon_uri", config.uriString)
+            .putString("iftar_cannon_name", config.fileName)
+            .putLong("iftar_cannon_duration", config.durationMs)
+            .putLong("iftar_cannon_size", config.sizeBytes)
+            .putBoolean("iftar_cannon_compatible", config.isCompatible)
+            .putBoolean("iftar_cannon_enabled", config.isEnabled)
+            .apply()
+        notifyChanged()
+    }
+
+    // Minutes before Maghrib for Iftar Cannon (0 = exactly with Maghrib, 1 = 1 min before, etc.)
+    fun getIftarCannonOffsetMinutes(): Int = prefs.getInt("iftar_cannon_offset_minutes", 0)
+    fun setIftarCannonOffsetMinutes(minutes: Int) {
+        prefs.edit().putInt("iftar_cannon_offset_minutes", minutes).apply()
         notifyChanged()
     }
 

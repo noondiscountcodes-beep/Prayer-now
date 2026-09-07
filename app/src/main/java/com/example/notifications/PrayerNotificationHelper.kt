@@ -20,11 +20,13 @@ object PrayerNotificationHelper {
     const val CHANNEL_ALERTS = "prayer_alerts_channel"
     const val CHANNEL_ADHAN = "prayer_adhan_channel"
     const val CHANNEL_MUSAHARATI = "prayer_musaharati_channel"
+    const val CHANNEL_IFTAR_CANNON = "prayer_iftar_cannon_channel"
 
     const val NOTIFICATION_ID_PERSISTENT = 1001
     const val NOTIFICATION_ID_ALERT = 2001
     const val NOTIFICATION_ID_ADHAN = 3001
     const val NOTIFICATION_ID_MUSAHARATI = 4001
+    const val NOTIFICATION_ID_IFTAR_CANNON = 5001
 
     fun createNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -66,10 +68,20 @@ object PrayerNotificationHelper {
                 enableVibration(true)
             }
 
+            val iftarCannonChannel = NotificationChannel(
+                CHANNEL_IFTAR_CANNON,
+                "مدفع الإفطار / Iftar Cannon",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "تنبيه وشاشة مدفع الإفطار في رمضان / Ramadan Iftar Cannon alerts"
+                enableVibration(true)
+            }
+
             manager.createNotificationChannel(persistentChannel)
             manager.createNotificationChannel(alertsChannel)
             manager.createNotificationChannel(adhanChannel)
             manager.createNotificationChannel(musaharatiChannel)
+            manager.createNotificationChannel(iftarCannonChannel)
         }
     }
 

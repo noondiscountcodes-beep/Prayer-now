@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -43,6 +44,7 @@ import com.example.localization.AppStrings
 import com.example.media.MediaHelper
 import com.example.notifications.AlarmScheduler
 import com.example.notifications.PrayerNotificationHelper
+import com.example.widgets.WidgetSyncHelper
 import com.example.notifications.PrayerNotificationService
 import com.example.ui.components.*
 import com.example.ui.theme.*
@@ -193,7 +195,7 @@ fun MenuScreen(
     }
 
     if (showAdhanScreenPreview) {
-        AdhanScreenDialog(
+        AdhanFullScreenView(
             prayer = previewAdhanPrayer,
             prefs = prefs,
             onDismiss = { showAdhanScreenPreview = false },
@@ -844,7 +846,7 @@ private fun AdhanTab(
 }
 
 // ─────────────────────────────────────────────────────────────
-// 5. RAMADAN TAB (SUHOOR & MUSAHARATI VIDEO)
+// 5. RAMADAN TAB (HIJRI ADJUSTMENT, IFTAR CANNON & MUSAHARATI)
 // ─────────────────────────────────────────────────────────────
 @Composable
 private fun RamadanTab(
@@ -854,6 +856,10 @@ private fun RamadanTab(
 ) {
     val context = LocalContext.current
     val musaharatiConfig = prefs.getMusaharatiConfig()
+    val iftarCannonConfig = prefs.getIftarCannonConfig()
+    val adhanRepo = remember { com.example.data.AdhanPreferencesRepository(context) }
+    val maghribScreenConfig = adhanRepo.getScreenConfig(PrayerType.MAGHRIB)
+    var hijriAdjustment by remember { mutableStateOf(prefs.getHijriAdjustment()) }
 
     // Video picker for Musaharati
     val musaharatiPicker = rememberLauncherForActivityResult(
@@ -875,23 +881,193 @@ private fun RamadanTab(
         }
     }
 
+    // Video picker for Iftar Cannon
+    val iftarCannonPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val meta = MediaHelper.inspectMediaUri(context, uri, isExpectedVideo = true)
+            prefs.setIftarCannonConfig(
+                AdhanVideoConfig(
+                    uriString = uri.toString(),
+                    fileName = meta.displayName,
+                    durationMs = meta.durationMs,
+                    sizeBytes = meta.sizeBytes,
+                    isCompatible = meta.isCompatible,
+                    isEnabled = true
+                )
+            )
+            AlarmScheduler.scheduleAll(context)
+        }
+    }
+
+    val cal = Calendar.getInstance(prefs.getTimezone())
+    val currentHijri = remember(cal.get(Calendar.DAY_OF_YEAR), hijriAdjustment) {
+        HijriCalendarHelper.fromGregorian(
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH),
+            hijriAdjustment
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            text = if (language.code == "ar") "🌙 إعدادات رمضان المبارك" else "🌙 Ramadan Settings",
+            text = if (language.code == "ar") "🌙 إعدادات رمضان والتقويم الهجري" else "🌙 Ramadan & Hijri Calendar Settings",
             style = MaterialTheme.typography.titleLarge,
             color = IslamicGoldPrimary,
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Ramadan Mode (Auto / Manual On / Manual Off)
+        // ══════════════════════════════════════════════════════════
+        // 1. HIJRI DATE ADJUSTMENT
+        // ══════════════════════════════════════════════════════════
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, IslamicGoldLight.copy(alpha = 0.5f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (language.code == "ar") "📅 تعديل التاريخ الهجري" else "📅 Hijri Date Adjustment",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = IslamicGoldLight
+                        )
+                        Text(
+                            text = if (language.code == "ar")
+                                "لتوافق التقويم مع الرؤية الشرعية للهلال في بلدك (± أيام)"
+                            else
+                                "Adjust calendar by days according to local moon sighting",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFA5BFB9)
+                        )
+                    }
+
+                    // Adjustment indicator badge
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (hijriAdjustment == 0) Color(0xFF1E293B) else Color(0xFF0F766E),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, IslamicGoldLight)
+                    ) {
+                        Text(
+                            text = if (hijriAdjustment > 0) "+$hijriAdjustment" else "$hijriAdjustment",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Current adjusted date preview box
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.Black.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "🌙 ${currentHijri.format(language.code)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = IslamicGoldPrimary,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Quick preset chips: -2, -1, 0, +1, +2
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(-2, -1, 0, 1, 2).forEach { offset ->
+                        FilterChip(
+                            selected = hijriAdjustment == offset,
+                            onClick = {
+                                hijriAdjustment = offset
+                                prefs.setHijriAdjustment(offset)
+                                AlarmScheduler.scheduleAll(context)
+                                WidgetSyncHelper.syncAll(context)
+                            },
+                            label = {
+                                Text(
+                                    when (offset) {
+                                        0 -> if (language.code == "ar") "0 (تلقائي)" else "0 (Auto)"
+                                        else -> if (offset > 0) "+$offset" else "$offset"
+                                    }
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Fine-tuning Stepper: Minus 1 day / Plus 1 day
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val next = (hijriAdjustment - 1).coerceAtLeast(-5)
+                            hijriAdjustment = next
+                            prefs.setHijriAdjustment(next)
+                            AlarmScheduler.scheduleAll(context)
+                            WidgetSyncHelper.syncAll(context)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (language.code == "ar") "➖ تقديم يوم (-1)" else "➖ -1 Day")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val next = (hijriAdjustment + 1).coerceAtMost(5)
+                            hijriAdjustment = next
+                            prefs.setHijriAdjustment(next)
+                            AlarmScheduler.scheduleAll(context)
+                            WidgetSyncHelper.syncAll(context)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (language.code == "ar") "➕ تأخير يوم (+1)" else "➕ +1 Day")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // ══════════════════════════════════════════════════════════
+        // 2. RAMADAN MODE
+        // ══════════════════════════════════════════════════════════
         Text(
-            text = if (language.code == "ar") "وضع رمضان:" else "Ramadan Mode:",
+            text = if (language.code == "ar") "وضع شهر رمضان:" else "Ramadan Mode:",
             style = MaterialTheme.typography.labelLarge,
             color = IslamicGoldLight
         )
@@ -900,11 +1076,15 @@ private fun RamadanTab(
             RamadanMode.values().forEach { mode ->
                 FilterChip(
                     selected = prefs.getRamadanMode() == mode,
-                    onClick = { prefs.setRamadanMode(mode) },
+                    onClick = {
+                        prefs.setRamadanMode(mode)
+                        AlarmScheduler.scheduleAll(context)
+                        WidgetSyncHelper.syncAll(context)
+                    },
                     label = {
                         Text(when (mode) {
-                            RamadanMode.AUTO -> if (language.code == "ar") "تلقائي (بحسب التاريخ)" else "Auto (By Hijri Date)"
-                            RamadanMode.MANUAL_ON -> if (language.code == "ar") "مفعّل يدويًا" else "Manual On"
+                            RamadanMode.AUTO -> if (language.code == "ar") "تلقائي (بحسب التاريخ)" else "Auto (By Date)"
+                            RamadanMode.MANUAL_ON -> if (language.code == "ar") "مفعّل دائمًا" else "Always On"
                             RamadanMode.MANUAL_OFF -> if (language.code == "ar") "معطّل" else "Disabled"
                         })
                     },
@@ -915,7 +1095,226 @@ private fun RamadanTab(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // Suhoor Alert Timing Settings
+        // ══════════════════════════════════════════════════════════
+        // 3. IFTAR CANNON (مدفع الإفطار في رمضان)
+        // ══════════════════════════════════════════════════════════
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE11D48).copy(alpha = 0.6f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (language.code == "ar") "💥 مدفع الإفطار في رمضان" else "💥 Ramadan Iftar Cannon",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFDA4AF)
+                        )
+                        Text(
+                            text = if (language.code == "ar")
+                                "يعمل قبل أذان المغرب مباشرة مع إطلاق الشاشة والفيديو تلقائياً"
+                            else
+                                "Fires right before Maghrib with auto screen & video launch",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFA5BFB9)
+                        )
+                    }
+                    Switch(
+                        checked = iftarCannonConfig.isEnabled,
+                        onCheckedChange = { checked ->
+                            prefs.setIftarCannonConfig(iftarCannonConfig.copy(isEnabled = checked))
+                            AlarmScheduler.scheduleAll(context)
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Timing: offset minutes before Maghrib
+                Text(
+                    text = if (language.code == "ar") "موعد إطلاق مدفع الإفطار:" else "Iftar Cannon Timing:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val cannonPresets = listOf(0, 1, 2, 5)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    cannonPresets.forEach { offsetMin ->
+                        FilterChip(
+                            selected = prefs.getIftarCannonOffsetMinutes() == offsetMin,
+                            onClick = {
+                                prefs.setIftarCannonOffsetMinutes(offsetMin)
+                                AlarmScheduler.scheduleAll(context)
+                            },
+                            label = {
+                                Text(
+                                    when (offsetMin) {
+                                        0 -> if (language.code == "ar") "مع الأذان مباشرة" else "With Adhan"
+                                        else -> if (language.code == "ar") "قبل بـ $offsetMin دقيقة" else "$offsetMin min before"
+                                    }
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Auto-Open screen toggle for Iftar Cannon
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (language.code == "ar") "تشغيل شاشة الأذان والمدفع تلقائيًا" else "Auto-Open Screen on Cannon",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = if (language.code == "ar") "تضيء الشاشة وتفتح تلقائياً عند حلول موعد الإفطار" else "Wakes and shows screen automatically at Iftar",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFA5BFB9)
+                        )
+                    }
+                    Switch(
+                        checked = maghribScreenConfig.autoOpenOnIftarCannon,
+                        onCheckedChange = { checked ->
+                            adhanRepo.setScreenConfig(PrayerType.MAGHRIB, maghribScreenConfig.copy(autoOpenOnIftarCannon = checked))
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Video/Audio Selector for Iftar Cannon
+                if (iftarCannonConfig.uriString != null) {
+                    val isAvail = MediaHelper.isUriAvailable(context, iftarCannonConfig.uriString)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MosqueDarkSurfaceVariant)
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = "🎬 ${iftarCannonConfig.fileName ?: "iftar_cannon_media"}",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "${if (language.code == "ar") "المدة" else "Duration"}: ${MediaHelper.formatDuration(iftarCannonConfig.durationMs)} • ${MediaHelper.formatFileSize(iftarCannonConfig.sizeBytes)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFFA5BFB9)
+                            )
+                            if (!isAvail) {
+                                Text(
+                                    text = if (language.code == "ar") "⚠️ محذوف" else "⚠️ Missing",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            } else {
+                                Text(
+                                    text = "✓ ${if (language.code == "ar") "جاهز للتشغيل" else "Ready"}",
+                                    color = LedEmeraldAccent,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                onPreviewVideo(
+                                    iftarCannonConfig.uriString,
+                                    if (language.code == "ar") "💥 فيديو وصوت مدفع الإفطار" else "Iftar Cannon Video"
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9F1239))
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(AppStrings.preview(language))
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                iftarCannonPicker.launch(
+                                    androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(AppStrings.replace(language))
+                        }
+
+                        IconButton(
+                            onClick = { prefs.setIftarCannonConfig(AdhanVideoConfig()) }
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            iftarCannonPicker.launch(
+                                androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9F1239))
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (language.code == "ar") "اختيار فيديو أو صوت مدفع الإفطار من الهاتف" else "Select Iftar Cannon Video/Audio")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Test Iftar Cannon button
+                Button(
+                    onClick = {
+                        val intent = Intent(context, com.example.notifications.AlarmReceiver::class.java).apply {
+                            action = com.example.notifications.AlarmReceiver.ACTION_IFTAR_CANNON
+                        }
+                        context.sendBroadcast(intent)
+                        Toast.makeText(context, if (language.code == "ar") "💥 تم إطلاق تنبيه مدفع الإفطار وشاشته" else "Iftar cannon alert triggered", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBE123C), contentColor = Color.White)
+                ) {
+                    Icon(Icons.Default.NotificationsActive, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (language.code == "ar") "💥 تجربة مدفع الإفطار الآن (الشاشة + الفيديو)" else "💥 Test Iftar Cannon Now (Screen + Video)")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // ══════════════════════════════════════════════════════════
+        // 4. SUHOOR ALERT TIMING & MUSAHARATI
+        // ══════════════════════════════════════════════════════════
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
@@ -935,13 +1334,19 @@ private fun RamadanTab(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(
                         selected = prefs.getSuhoorAlertMode() == SuhoorAlertMode.OFFSET_FAJR,
-                        onClick = { prefs.setSuhoorAlertMode(SuhoorAlertMode.OFFSET_FAJR) },
+                        onClick = {
+                            prefs.setSuhoorAlertMode(SuhoorAlertMode.OFFSET_FAJR)
+                            AlarmScheduler.scheduleAll(context)
+                        },
                         label = { Text(if (language.code == "ar") "قبل أذان الفجر" else "Before Fajr") },
                         modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = prefs.getSuhoorAlertMode() == SuhoorAlertMode.FIXED_TIME,
-                        onClick = { prefs.setSuhoorAlertMode(SuhoorAlertMode.FIXED_TIME) },
+                        onClick = {
+                            prefs.setSuhoorAlertMode(SuhoorAlertMode.FIXED_TIME)
+                            AlarmScheduler.scheduleAll(context)
+                        },
                         label = { Text(if (language.code == "ar") "ساعة ثابتة" else "Fixed Time") },
                         modifier = Modifier.weight(1f)
                     )
@@ -955,7 +1360,10 @@ private fun RamadanTab(
                         offsetPresets.forEach { min ->
                             FilterChip(
                                 selected = prefs.getSuhoorOffsetMinutes() == min,
-                                onClick = { prefs.setSuhoorOffsetMinutes(min) },
+                                onClick = {
+                                    prefs.setSuhoorOffsetMinutes(min)
+                                    AlarmScheduler.scheduleAll(context)
+                                },
                                 label = { Text("$min min") },
                                 modifier = Modifier.weight(1f)
                             )
@@ -964,7 +1372,10 @@ private fun RamadanTab(
                 } else {
                     OutlinedTextField(
                         value = prefs.getSuhoorManualTime(),
-                        onValueChange = { prefs.setSuhoorManualTime(it) },
+                        onValueChange = {
+                            prefs.setSuhoorManualTime(it)
+                            AlarmScheduler.scheduleAll(context)
+                        },
                         label = { Text(if (language.code == "ar") "الساعة (مثال: 04:00)" else "Time (e.g. 04:00)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -998,6 +1409,7 @@ private fun RamadanTab(
                         checked = musaharatiConfig.isEnabled,
                         onCheckedChange = { checked ->
                             prefs.setMusaharatiConfig(musaharatiConfig.copy(isEnabled = checked))
+                            AlarmScheduler.scheduleAll(context)
                         }
                     )
                 }
@@ -1106,7 +1518,7 @@ private fun RamadanTab(
                     action = com.example.notifications.AlarmReceiver.ACTION_MUSAHARATI
                 }
                 context.sendBroadcast(intent)
-                Toast.makeText(context, if (language.code == "ar") "تم إرسال إشعار تجريبي للمسحراتي" else "Musaharati test notification sent", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, if (language.code == "ar") "تم إرسال إشعار وتنبيه المسحراتي" else "Musaharati alert sent", Toast.LENGTH_SHORT).show()
             },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = IslamicGoldPrimary, contentColor = Color.Black)

@@ -150,7 +150,8 @@ object PrayerBannerHelper {
         val hijri = HijriCalendarHelper.fromGregorian(
             cal.get(Calendar.YEAR),
             cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH)
+            cal.get(Calendar.DAY_OF_MONTH),
+            prefs.getHijriAdjustment()
         )
         val monthName = HijriCalendarHelper.getMonthName(hijri.month, lang.code)
         val hijriText = if (isArabic) {
@@ -253,7 +254,8 @@ object PrayerBannerHelper {
         val hijri = HijriCalendarHelper.fromGregorian(
             cal.get(Calendar.YEAR),
             cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH)
+            cal.get(Calendar.DAY_OF_MONTH),
+            prefs.getHijriAdjustment()
         )
         val monthName = HijriCalendarHelper.getMonthName(hijri.month, lang.code)
         val hijriText = if (isArabic) {

@@ -79,8 +79,13 @@ object AlarmScheduler {
             }
         }
 
-        // 3. Schedule Musaharati if Ramadan mode is enabled
-        val hijri = HijriCalendarHelper.fromGregorian(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
+        // 3. Schedule Musaharati & Iftar Cannon if Ramadan mode is enabled
+        val hijri = HijriCalendarHelper.fromGregorian(
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH),
+            prefs.getHijriAdjustment()
+        )
         val isRamadanActive = when (prefs.getRamadanMode()) {
             RamadanMode.AUTO -> hijri.isRamadan
             RamadanMode.MANUAL_ON -> true
@@ -88,6 +93,7 @@ object AlarmScheduler {
         }
 
         if (isRamadanActive) {
+            // Suhoor Musaharati
             val musaharatiConfig = prefs.getMusaharatiConfig()
             if (musaharatiConfig.isEnabled) {
                 val suhoorTriggerTime = when (prefs.getSuhoorAlertMode()) {
@@ -113,6 +119,21 @@ object AlarmScheduler {
                         alarmManager,
                         suhoorTriggerTime,
                         createMusaharatiIntent(context)
+                    )
+                }
+            }
+
+            // Iftar Cannon (Works right before Maghrib Adhan in Ramadan)
+            val iftarCannonConfig = prefs.getIftarCannonConfig()
+            if (iftarCannonConfig.isEnabled) {
+                val offsetMin = prefs.getIftarCannonOffsetMinutes()
+                val cannonTriggerTime = todaySchedule.maghrib.timestampMillis - (offsetMin * 60 * 1000L)
+                if (cannonTriggerTime > now) {
+                    scheduleExact(
+                        context,
+                        alarmManager,
+                        cannonTriggerTime,
+                        createIftarCannonIntent(context)
                     )
                 }
             }
@@ -173,6 +194,18 @@ object AlarmScheduler {
         return PendingIntent.getBroadcast(
             context,
             888,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun createIftarCannonIntent(context: Context): PendingIntent {
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            action = AlarmReceiver.ACTION_IFTAR_CANNON
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            889,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

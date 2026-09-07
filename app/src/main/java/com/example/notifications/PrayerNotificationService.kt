@@ -63,9 +63,7 @@ class PrayerNotificationService : Service() {
                     stopSelf()
                     break
                 }
-                val notif = PrayerNotificationHelper.buildPersistentNotification(this@PrayerNotificationService)
-                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_PERSISTENT, notif)
+                com.example.widgets.WidgetSyncHelper.syncAll(this@PrayerNotificationService)
             }
         }
     }

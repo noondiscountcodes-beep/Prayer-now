@@ -150,6 +150,10 @@ class AdhanPreferencesRepository(context: Context) {
         val showRemaining = prefs.getBoolean("screen_${p}_show_remaining", true)
         val selectedImagesStr = prefs.getString("screen_${p}_images", "") ?: ""
         val selectedImages = if (selectedImagesStr.isBlank()) emptyList() else selectedImagesStr.split("|")
+        val autoAdhan = prefs.getBoolean("screen_${p}_auto_adhan", true)
+        val autoSuhoor = prefs.getBoolean("screen_${p}_auto_suhoor", true)
+        val autoAlerts = prefs.getBoolean("screen_${p}_auto_alerts", true)
+        val autoIftarCannon = prefs.getBoolean("screen_${p}_auto_iftar_cannon", true)
 
         return AdhanScreenConfig(
             displayMode = mode,
@@ -159,7 +163,11 @@ class AdhanPreferencesRepository(context: Context) {
             showHijriDate = showHijri,
             showGregorianDate = showGregorian,
             showRemainingTime = showRemaining,
-            selectedImageNames = selectedImages
+            selectedImageNames = selectedImages,
+            autoOpenOnAdhan = autoAdhan,
+            autoOpenOnSuhoor = autoSuhoor,
+            autoOpenOnAlerts = autoAlerts,
+            autoOpenOnIftarCannon = autoIftarCannon
         )
     }
 
@@ -174,6 +182,10 @@ class AdhanPreferencesRepository(context: Context) {
             .putBoolean("screen_${p}_show_gregorian", config.showGregorianDate)
             .putBoolean("screen_${p}_show_remaining", config.showRemainingTime)
             .putString("screen_${p}_images", config.selectedImageNames.joinToString("|"))
+            .putBoolean("screen_${p}_auto_adhan", config.autoOpenOnAdhan)
+            .putBoolean("screen_${p}_auto_suhoor", config.autoOpenOnSuhoor)
+            .putBoolean("screen_${p}_auto_alerts", config.autoOpenOnAlerts)
+            .putBoolean("screen_${p}_auto_iftar_cannon", config.autoOpenOnIftarCannon)
             .apply()
         notifyUpdate()
     }

@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
 import android.os.Build
+import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.data.AlertItem
@@ -15,8 +17,34 @@ import com.example.data.AppPreferences
 import com.example.engine.PrayerType
 import com.example.localization.AppStrings
 import com.example.media.MediaHelper
+import com.example.widgets.WidgetSyncHelper
 
 class AlarmReceiver : BroadcastReceiver() {
+
+    private fun acquireWakeLock(context: Context, tag: String, timeoutMs: Long = 60_000L) {
+        try {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            @Suppress("DEPRECATION")
+            val wakeLock = powerManager?.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+                PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                PowerManager.ON_AFTER_RELEASE,
+                tag
+            )
+            wakeLock?.acquire(timeoutMs)
+        } catch (e: Exception) {
+            try {
+                val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                val wakeLock = powerManager?.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    tag
+                )
+                wakeLock?.acquire(timeoutMs)
+            } catch (e2: Exception) {
+                Log.e("AlarmReceiver", "Failed to acquire wake lock", e2)
+            }
+        }
+    }
 
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent == null) return
@@ -32,10 +60,12 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
                 val duaConfig = adhanRepo.getDuaConfig(prayerType)
+                val screenConfig = adhanRepo.getScreenConfig(prayerType)
 
                 val openIntent = Intent(context, MainActivity::class.java).apply {
                     putExtra("TRIGGER_ADHAN_SCREEN", prayerType.name)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("TRIGGER_SCREEN_TYPE", "ADHAN")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 }
                 val pendingIntent = PendingIntent.getActivity(
                     context,
@@ -70,6 +100,16 @@ class AlarmReceiver : BroadcastReceiver() {
                 val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_ADHAN + prayerType.ordinal, builder.build())
 
+                // Wake screen and automatically open Adhan screen
+                acquireWakeLock(context, "MosqueClock:AdhanScreenWake")
+                if (screenConfig.autoOpenOnAdhan) {
+                    try {
+                        context.startActivity(openIntent)
+                    } catch (e: Exception) {
+                        Log.e("AlarmReceiver", "Failed to auto-launch Adhan screen activity", e)
+                    }
+                }
+
                 // Play exact sequence: Prayer Time -> Alert Sound (if enabled) -> Adhan immediately -> Du'aa
                 AdhanSequencePlayer.playPrayerSequence(
                     context = context,
@@ -101,8 +141,9 @@ class AlarmReceiver : BroadcastReceiver() {
                     }
                 )
 
-                // Reschedule next prayer
+                // Reschedule next prayer and synchronize widgets + notification bar
                 AlarmScheduler.scheduleAll(context)
+                WidgetSyncHelper.syncAll(context)
             }
 
             ACTION_CUSTOM_ALERT -> {
@@ -120,8 +161,19 @@ class AlarmReceiver : BroadcastReceiver() {
                         "${alert.minutesBefore} minutes before $targetName prayer"
                     }
 
+                    val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
+                    val targetPrayerType = try {
+                        if (alert.targetPrayer == "ALL") PrayerType.FAJR else PrayerType.valueOf(alert.targetPrayer)
+                    } catch (e: Exception) {
+                        PrayerType.FAJR
+                    }
+                    val screenConfig = adhanRepo.getScreenConfig(targetPrayerType)
+
                     val openIntent = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        putExtra("TRIGGER_ADHAN_SCREEN", targetPrayerType.name)
+                        putExtra("TRIGGER_SCREEN_TYPE", "ALERT")
+                        putExtra("TRIGGER_ALERT_MINUTES", alert.minutesBefore)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     }
                     val pendingIntent = PendingIntent.getActivity(
                         context,
@@ -134,8 +186,10 @@ class AlarmReceiver : BroadcastReceiver() {
                         .setSmallIcon(android.R.drawable.ic_dialog_alert)
                         .setContentTitle(title)
                         .setContentText(message)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setPriority(NotificationCompat.PRIORITY_MAX)
+                        .setCategory(NotificationCompat.CATEGORY_ALARM)
                         .setContentIntent(pendingIntent)
+                        .setFullScreenIntent(pendingIntent, true)
                         .setAutoCancel(true)
                         .setVibrate(longArrayOf(0, 400, 200, 400))
 
@@ -144,9 +198,20 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     // Play audio tone
                     MediaHelper.playAudioPreview(context, alert.soundUri)
+
+                    // Wake screen and automatically open Alert Screen
+                    acquireWakeLock(context, "MosqueClock:AlertScreenWake")
+                    if (screenConfig.autoOpenOnAlerts) {
+                        try {
+                            context.startActivity(openIntent)
+                        } catch (e: Exception) {
+                            Log.e("AlarmReceiver", "Failed to auto-launch Alert screen activity", e)
+                        }
+                    }
                 }
 
                 AlarmScheduler.scheduleAll(context)
+                WidgetSyncHelper.syncAll(context)
             }
 
             ACTION_MUSAHARATI -> {
@@ -160,9 +225,14 @@ class AlarmReceiver : BroadcastReceiver() {
                     "Blessed Suhoor time has arrived"
                 }
 
+                val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
+                val screenConfig = adhanRepo.getScreenConfig(PrayerType.FAJR)
+
                 val openIntent = Intent(context, MainActivity::class.java).apply {
+                    putExtra("TRIGGER_ADHAN_SCREEN", "FAJR")
+                    putExtra("TRIGGER_SCREEN_TYPE", "SUHOOR")
                     putExtra("TRIGGER_MUSAHARATI_VIDEO", true)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 }
                 val pendingIntent = PendingIntent.getActivity(
                     context,
@@ -175,8 +245,10 @@ class AlarmReceiver : BroadcastReceiver() {
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setContentTitle(title)
                     .setContentText(message)
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
                     .setContentIntent(pendingIntent)
+                    .setFullScreenIntent(pendingIntent, true)
                     .setAutoCancel(true)
                     .setVibrate(longArrayOf(0, 500, 200, 500))
 
@@ -190,7 +262,80 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 MediaHelper.playAudioPreview(context, config.uriString)
 
+                // Wake screen and automatically open Suhoor Screen
+                acquireWakeLock(context, "MosqueClock:SuhoorScreenWake")
+                if (screenConfig.autoOpenOnSuhoor) {
+                    try {
+                        context.startActivity(openIntent)
+                    } catch (e: Exception) {
+                        Log.e("AlarmReceiver", "Failed to auto-launch Suhoor screen activity", e)
+                    }
+                }
+
                 AlarmScheduler.scheduleAll(context)
+                WidgetSyncHelper.syncAll(context)
+            }
+
+            ACTION_IFTAR_CANNON -> {
+                val config = prefs.getIftarCannonConfig()
+                val title = if (lang.code == "ar") "💥 مدفع الإفطار — رمضان مبارك" else "💥 Ramadan Iftar Cannon"
+                val message = if (lang.code == "ar") {
+                    "مدفع الإفطار.. اضْرِب! حان موعد إفطار الصائمين — صياماً مقبولاً وإفطاراً شهياً"
+                } else if (lang.code == "fr") {
+                    "Le canon de l'Iftar a retenti ! Bon appétit"
+                } else {
+                    "Iftar Cannon has fired! Blessed Iftar"
+                }
+
+                val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
+                val screenConfig = adhanRepo.getScreenConfig(PrayerType.MAGHRIB)
+
+                val openIntent = Intent(context, MainActivity::class.java).apply {
+                    putExtra("TRIGGER_ADHAN_SCREEN", "MAGHRIB")
+                    putExtra("TRIGGER_SCREEN_TYPE", "IFTAR_CANNON")
+                    putExtra("TRIGGER_IFTAR_CANNON_VIDEO", true)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    98,
+                    openIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val builder = NotificationCompat.Builder(context, PrayerNotificationHelper.CHANNEL_IFTAR_CANNON)
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentTitle(title)
+                    .setContentText(message)
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setContentIntent(pendingIntent)
+                    .setFullScreenIntent(pendingIntent, true)
+                    .setAutoCancel(true)
+                    .setVibrate(longArrayOf(0, 700, 300, 700))
+
+                if (config.uriString != null && MediaHelper.isUriAvailable(context, config.uriString)) {
+                    val playLabel = if (lang.code == "ar") "تشغيل فيديو مدفع الإفطار" else "Play Video"
+                    builder.addAction(android.R.drawable.ic_media_play, playLabel, pendingIntent)
+                }
+
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_IFTAR_CANNON, builder.build())
+
+                MediaHelper.playAudioPreview(context, config.uriString)
+
+                // Wake screen and automatically open Iftar Cannon Screen
+                acquireWakeLock(context, "MosqueClock:IftarCannonScreenWake")
+                if (screenConfig.autoOpenOnIftarCannon) {
+                    try {
+                        context.startActivity(openIntent)
+                    } catch (e: Exception) {
+                        Log.e("AlarmReceiver", "Failed to auto-launch Iftar Cannon screen activity", e)
+                    }
+                }
+
+                AlarmScheduler.scheduleAll(context)
+                WidgetSyncHelper.syncAll(context)
             }
 
             ACTION_TOGGLE_ALERTS -> {
@@ -200,10 +345,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 val anyEnabled = alerts.any { it.isEnabled }
                 alerts.forEach { repo.toggleAlert(it.id, !anyEnabled) }
                 AlarmScheduler.scheduleAll(context)
-                // Refresh persistent notification
-                val notif = PrayerNotificationHelper.buildPersistentNotification(context)
-                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_PERSISTENT, notif)
+                WidgetSyncHelper.syncAll(context)
             }
         }
     }
@@ -212,6 +354,7 @@ class AlarmReceiver : BroadcastReceiver() {
         const val ACTION_PRAYER_ALARM = "com.example.ACTION_PRAYER_ALARM"
         const val ACTION_CUSTOM_ALERT = "com.example.ACTION_CUSTOM_ALERT"
         const val ACTION_MUSAHARATI = "com.example.ACTION_MUSAHARATI"
+        const val ACTION_IFTAR_CANNON = "com.example.ACTION_IFTAR_CANNON"
         const val ACTION_TOGGLE_ALERTS = "com.example.ACTION_TOGGLE_ALERTS"
 
         const val EXTRA_PRAYER_NAME = "EXTRA_PRAYER_NAME"

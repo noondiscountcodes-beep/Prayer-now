@@ -12,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -41,6 +43,7 @@ import com.example.media.AdhanZipManager
 import com.example.media.MediaHelper
 import com.example.notifications.AdhanSequencePlayer
 import com.example.ui.theme.*
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -59,6 +62,9 @@ fun AdhanTabContent(
 
     // Active audio preview state
     var currentlyPlayingUri by remember { mutableStateOf<String?>(null) }
+
+    val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     val fivePrayers = listOf(
         PrayerType.FAJR,
@@ -82,39 +88,7 @@ fun AdhanTabContent(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Privacy & Local Storage Guarantee Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F3029)),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E5245))
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Security,
-                    contentDescription = null,
-                    tint = IslamicGoldLight,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = if (language.code == "ar")
-                        "جميع ملفات الأذان، أصوات التنبيه، فيديوهات الدعاء، وصور الشاشة آمنة ومحفوظة محليًا على جهازك فقط."
-                    else
-                        "All Adhan audios, alert tones, prayer videos, and screen photos remain 100% private and stored locally on your device.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFD1FAE5),
-                    lineHeight = 18.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 4 Main Section Tabs
+        // 4 Main Section Tabs (Sticky at top for quick navigation)
         ScrollableTabRow(
             selectedTabIndex = activeSubSection,
             containerColor = MosqueDarkSurface,
@@ -145,6 +119,9 @@ fun AdhanTabContent(
                         MediaHelper.stopAudioPreview()
                         currentlyPlayingUri = null
                         activeSubSection = index
+                        coroutineScope.launch {
+                            scrollState.scrollTo(0)
+                        }
                     },
                     text = {
                         Text(
@@ -158,60 +135,106 @@ fun AdhanTabContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Render selected section
-        when (activeSubSection) {
-            0 -> SectionAdhanAudio(
-                context = context,
-                repo = repo,
-                language = language,
-                prayers = fivePrayers,
-                currentlyPlayingUri = currentlyPlayingUri,
-                onTogglePlayAudio = { uri ->
-                    if (currentlyPlayingUri == uri) {
-                        MediaHelper.stopAudioPreview()
-                        currentlyPlayingUri = null
-                    } else {
-                        currentlyPlayingUri = uri
-                        MediaHelper.playAudioPreview(context, uri) {
-                            currentlyPlayingUri = null
-                        }
+        // Scrollable content area for all 5 prayers and settings
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(scrollState)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 90.dp)
+            ) {
+                // Privacy & Local Storage Guarantee Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F3029)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E5245))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Security,
+                            contentDescription = null,
+                            tint = IslamicGoldLight,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (language.code == "ar")
+                                "جميع ملفات الأذان، أصوات التنبيه، فيديوهات الدعاء، وصور الشاشة آمنة ومحفوظة محليًا على جهازك فقط."
+                            else
+                                "All Adhan audios, alert tones, prayer videos, and screen photos remain 100% private and stored locally on your device.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFD1FAE5),
+                            lineHeight = 18.sp
+                        )
                     }
                 }
-            )
-            1 -> SectionAdhanAlert(
-                context = context,
-                repo = repo,
-                language = language,
-                prayers = fivePrayers,
-                currentlyPlayingUri = currentlyPlayingUri,
-                onTogglePlayAudio = { uri ->
-                    if (currentlyPlayingUri == uri) {
-                        MediaHelper.stopAudioPreview()
-                        currentlyPlayingUri = null
-                    } else {
-                        currentlyPlayingUri = uri
-                        MediaHelper.playAudioPreview(context, uri) {
-                            currentlyPlayingUri = null
+
+                // Render selected section
+                when (activeSubSection) {
+                    0 -> SectionAdhanAudio(
+                        context = context,
+                        repo = repo,
+                        language = language,
+                        prayers = fivePrayers,
+                        currentlyPlayingUri = currentlyPlayingUri,
+                        onTogglePlayAudio = { uri ->
+                            if (currentlyPlayingUri == uri) {
+                                MediaHelper.stopAudioPreview()
+                                currentlyPlayingUri = null
+                            } else {
+                                currentlyPlayingUri = uri
+                                MediaHelper.playAudioPreview(context, uri) {
+                                    currentlyPlayingUri = null
+                                }
+                            }
                         }
-                    }
+                    )
+                    1 -> SectionAdhanAlert(
+                        context = context,
+                        repo = repo,
+                        language = language,
+                        prayers = fivePrayers,
+                        currentlyPlayingUri = currentlyPlayingUri,
+                        onTogglePlayAudio = { uri ->
+                            if (currentlyPlayingUri == uri) {
+                                MediaHelper.stopAudioPreview()
+                                currentlyPlayingUri = null
+                            } else {
+                                currentlyPlayingUri = uri
+                                MediaHelper.playAudioPreview(context, uri) {
+                                    currentlyPlayingUri = null
+                                }
+                            }
+                        }
+                    )
+                    2 -> SectionDuaVideo(
+                        context = context,
+                        repo = repo,
+                        language = language,
+                        prayers = fivePrayers,
+                        onPreviewVideo = onPreviewVideo
+                    )
+                    3 -> SectionAdhanScreen(
+                        context = context,
+                        repo = repo,
+                        language = language,
+                        prayers = fivePrayers,
+                        onPreviewAdhanScreen = onPreviewAdhanScreen
+                    )
                 }
-            )
-            2 -> SectionDuaVideo(
-                context = context,
-                repo = repo,
-                language = language,
-                prayers = fivePrayers,
-                onPreviewVideo = onPreviewVideo
-            )
-            3 -> SectionAdhanScreen(
-                context = context,
-                repo = repo,
-                language = language,
-                prayers = fivePrayers,
-                onPreviewAdhanScreen = onPreviewAdhanScreen
-            )
+            }
         }
     }
 }
@@ -1056,61 +1079,68 @@ private fun SectionAdhanScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 240.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(extractedImages) { imgFile ->
-                            val isSelected = screenConfig.selectedImageNames.isEmpty() ||
-                                    screenConfig.selectedImageNames.contains(imgFile.name)
-
-                            Box(
-                                modifier = Modifier
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) IslamicGoldPrimary else Color.DarkGray,
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable {
-                                        fullPreviewImagePath = imgFile.absolutePath
-                                    }
+                        extractedImages.chunked(3).forEach { rowImages ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Image(
-                                    painter = rememberAsyncImagePainter(imgFile),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                rowImages.forEach { imgFile ->
+                                    val isSelected = screenConfig.selectedImageNames.isEmpty() ||
+                                            screenConfig.selectedImageNames.contains(imgFile.name)
 
-                                // Checkbox overlay for selection in slideshow
-                                IconButton(
-                                    onClick = {
-                                        val currentList = screenConfig.selectedImageNames.toMutableList()
-                                        if (currentList.contains(imgFile.name)) {
-                                            currentList.remove(imgFile.name)
-                                        } else {
-                                            currentList.add(imgFile.name)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .border(
+                                                width = if (isSelected) 2.dp else 1.dp,
+                                                color = if (isSelected) IslamicGoldPrimary else Color.DarkGray,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable {
+                                                fullPreviewImagePath = imgFile.absolutePath
+                                            }
+                                    ) {
+                                        Image(
+                                            painter = rememberAsyncImagePainter(imgFile),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+
+                                        // Checkbox overlay for selection in slideshow
+                                        IconButton(
+                                            onClick = {
+                                                val currentList = screenConfig.selectedImageNames.toMutableList()
+                                                if (currentList.contains(imgFile.name)) {
+                                                    currentList.remove(imgFile.name)
+                                                } else {
+                                                    currentList.add(imgFile.name)
+                                                }
+                                                screenConfig = screenConfig.copy(selectedImageNames = currentList)
+                                                repo.setScreenConfig(targetPrayer, screenConfig)
+                                            },
+                                            modifier = Modifier
+                                                .size(30.dp)
+                                                .align(Alignment.TopEnd)
+                                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                        ) {
+                                            Icon(
+                                                if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                                contentDescription = null,
+                                                tint = if (isSelected) LedEmeraldAccent else Color.LightGray,
+                                                modifier = Modifier.size(18.dp)
+                                            )
                                         }
-                                        screenConfig = screenConfig.copy(selectedImageNames = currentList)
-                                        repo.setScreenConfig(targetPrayer, screenConfig)
-                                    },
-                                    modifier = Modifier
-                                        .size(30.dp)
-                                        .align(Alignment.TopEnd)
-                                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-                                ) {
-                                    Icon(
-                                        if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                                        contentDescription = null,
-                                        tint = if (isSelected) LedEmeraldAccent else Color.LightGray,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    }
+                                }
+                                repeat(3 - rowImages.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
                         }
@@ -1246,6 +1276,95 @@ private fun SectionAdhanScreen(
                         repo.setScreenConfig(targetPrayer, screenConfig)
                     }
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Automatic Screen Launch & Synchronization Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, IslamicGoldLight.copy(alpha = 0.4f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        tint = IslamicGoldPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (language.code == "ar") "التشغيل التلقائي والمزامنة" else "Automatic Launch & Sync",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+
+                Text(
+                    text = if (language.code == "ar")
+                        "تشغيل شاشة الأذان تلقائياً وإيقاظ الهاتف حتى لو كان مقفلاً عند المواعيد المحددة ومزامنة شريط الإشعارات والويدجت."
+                    else
+                        "Automatically wake device and launch screen at prayer, suhoor, or alerts, and synchronize widgets.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.LightGray,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+                )
+
+                ScreenElementToggleRow(
+                    title = if (language.code == "ar") "تشغيل الشاشة تلقائياً عند حلول الأذان" else "Auto launch on Adhan",
+                    checked = screenConfig.autoOpenOnAdhan,
+                    onCheckedChange = {
+                        screenConfig = screenConfig.copy(autoOpenOnAdhan = it)
+                        repo.setScreenConfig(targetPrayer, screenConfig)
+                    }
+                )
+
+                ScreenElementToggleRow(
+                    title = if (language.code == "ar") "تشغيل الشاشة تلقائياً عند موعد السحور" else "Auto launch on Suhoor",
+                    checked = screenConfig.autoOpenOnSuhoor,
+                    onCheckedChange = {
+                        screenConfig = screenConfig.copy(autoOpenOnSuhoor = it)
+                        repo.setScreenConfig(targetPrayer, screenConfig)
+                    }
+                )
+
+                ScreenElementToggleRow(
+                    title = if (language.code == "ar") "تشغيل الشاشة تلقائياً عند التنبيهات المسبقة" else "Auto launch on Alerts",
+                    checked = screenConfig.autoOpenOnAlerts,
+                    onCheckedChange = {
+                        screenConfig = screenConfig.copy(autoOpenOnAlerts = it)
+                        repo.setScreenConfig(targetPrayer, screenConfig)
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        com.example.widgets.WidgetSyncHelper.syncAll(context)
+                        Toast.makeText(
+                            context,
+                            if (language.code == "ar") "✓ تمت مزامنة التطبيقات المصغرة وشريط الإشعارات بنجاح" else "✓ Widgets and notification bar synced",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8))
+                ) {
+                    Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (language.code == "ar") "مزامنة التطبيقات المصغرة وشريط الإشعارات الآن" else "Sync Widgets & Notifications Now",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 

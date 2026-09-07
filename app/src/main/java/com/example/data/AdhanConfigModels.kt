@@ -40,5 +40,9 @@ data class AdhanScreenConfig(
     val showHijriDate: Boolean = true,
     val showGregorianDate: Boolean = true,
     val showRemainingTime: Boolean = true,
-    val selectedImageNames: List<String> = emptyList()
+    val selectedImageNames: List<String> = emptyList(),
+    val autoOpenOnAdhan: Boolean = true,
+    val autoOpenOnSuhoor: Boolean = true,
+    val autoOpenOnAlerts: Boolean = true,
+    val autoOpenOnIftarCannon: Boolean = true
 )

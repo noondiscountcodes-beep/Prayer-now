@@ -43,6 +43,7 @@ fun MosqueClockScreen(
     onOpenMenu: () -> Unit,
     pendingVideoPrayer: String? = null,
     pendingMusaharati: Boolean = false,
+    pendingIftarCannon: Boolean = false,
     onVideoHandled: () -> Unit = {}
 ) {
     val language by prefs.languageFlow.collectAsState()
@@ -119,7 +120,8 @@ fun MosqueClockScreen(
         HijriCalendarHelper.fromGregorian(
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH) + 1,
-            calendar.get(Calendar.DAY_OF_MONTH)
+            calendar.get(Calendar.DAY_OF_MONTH),
+            prefs.getHijriAdjustment()
         )
     }
     val hijriString = remember(hijriDate, language) {
@@ -171,6 +173,15 @@ fun MosqueClockScreen(
             val cfg = prefs.getMusaharatiConfig()
             activeVideoUri = cfg.uriString
             activeVideoTitle = if (language.code == "ar") "فيديو المسحراتي" else "Musaharati Video"
+            showVideoDialog = true
+            onVideoHandled()
+        }
+    }
+    LaunchedEffect(pendingIftarCannon) {
+        if (pendingIftarCannon) {
+            val cfg = prefs.getIftarCannonConfig()
+            activeVideoUri = cfg.uriString
+            activeVideoTitle = if (language.code == "ar") "💥 فيديو مدفع الإفطار" else "💥 Iftar Cannon Video"
             showVideoDialog = true
             onVideoHandled()
         }
