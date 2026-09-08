@@ -24,6 +24,7 @@ import com.example.engine.PrayerType
 import com.example.localization.AppLanguage
 import com.example.localization.AppStrings
 import com.example.media.MediaHelper
+import com.example.media.MediaPermissionHelper
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,14 +52,34 @@ fun AddEditAlertDialog(
     var soundName by remember { mutableStateOf(initialAlert?.soundName) }
     var isPlayingPreview by remember { mutableStateOf(false) }
 
-    // Audio file picker launcher (Zero storage permissions!)
+    // Audio file picker launcher with internal copy
     val audioPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
             val meta = MediaHelper.inspectMediaUri(context, uri, isExpectedVideo = false)
-            soundUriString = uri.toString()
+            val copiedFile = MediaHelper.copyMediaToInternal(
+                context = context,
+                sourceUri = uri,
+                folderName = "custom_audio",
+                targetFileNameWithoutExt = "alert_${System.currentTimeMillis()}"
+            )
+            soundUriString = if (copiedFile != null) Uri.fromFile(copiedFile).toString() else uri.toString()
             soundName = meta.displayName
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        audioPicker.launch("audio/*")
+    }
+
+    val launchAudioPicker = {
+        if (MediaPermissionHelper.hasAudioPermission(context)) {
+            audioPicker.launch("audio/*")
+        } else {
+            permissionLauncher.launch(MediaPermissionHelper.getAudioPermissions())
         }
     }
 
@@ -269,7 +290,7 @@ fun AddEditAlertDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedButton(
-                                onClick = { audioPicker.launch("audio/*") },
+                                onClick = { launchAudioPicker() },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(if (language.code == "ar") "اختيار صوت" else "Choose Audio")

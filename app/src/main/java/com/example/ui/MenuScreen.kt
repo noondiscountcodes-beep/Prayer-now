@@ -867,12 +867,20 @@ private fun RamadanTab(
     ) { uri: Uri? ->
         if (uri != null) {
             val meta = MediaHelper.inspectMediaUri(context, uri, isExpectedVideo = true)
+            val internalFile = MediaHelper.copyMediaToInternal(
+                context = context,
+                sourceUri = uri,
+                folderName = "custom_video",
+                targetFileNameWithoutExt = "musaharati_video"
+            )
+            val finalUri = if (internalFile != null) Uri.fromFile(internalFile).toString() else uri.toString()
+            val finalSize = internalFile?.length() ?: meta.sizeBytes
             prefs.setMusaharatiConfig(
                 AdhanVideoConfig(
-                    uriString = uri.toString(),
+                    uriString = finalUri,
                     fileName = meta.displayName,
                     durationMs = meta.durationMs,
-                    sizeBytes = meta.sizeBytes,
+                    sizeBytes = finalSize,
                     isCompatible = meta.isCompatible,
                     isEnabled = true
                 )
@@ -887,12 +895,20 @@ private fun RamadanTab(
     ) { uri: Uri? ->
         if (uri != null) {
             val meta = MediaHelper.inspectMediaUri(context, uri, isExpectedVideo = true)
+            val internalFile = MediaHelper.copyMediaToInternal(
+                context = context,
+                sourceUri = uri,
+                folderName = "custom_video",
+                targetFileNameWithoutExt = "iftar_cannon_media"
+            )
+            val finalUri = if (internalFile != null) Uri.fromFile(internalFile).toString() else uri.toString()
+            val finalSize = internalFile?.length() ?: meta.sizeBytes
             prefs.setIftarCannonConfig(
                 AdhanVideoConfig(
-                    uriString = uri.toString(),
+                    uriString = finalUri,
                     fileName = meta.displayName,
                     durationMs = meta.durationMs,
-                    sizeBytes = meta.sizeBytes,
+                    sizeBytes = finalSize,
                     isCompatible = meta.isCompatible,
                     isEnabled = true
                 )
@@ -1268,7 +1284,10 @@ private fun RamadanTab(
                         }
 
                         IconButton(
-                            onClick = { prefs.setIftarCannonConfig(AdhanVideoConfig()) }
+                            onClick = {
+                                MediaHelper.deleteInternalMedia(context, "custom_video", "iftar_cannon_media")
+                                prefs.setIftarCannonConfig(AdhanVideoConfig())
+                            }
                         ) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                         }
@@ -1486,7 +1505,10 @@ private fun RamadanTab(
                         }
 
                         IconButton(
-                            onClick = { prefs.setMusaharatiConfig(AdhanVideoConfig()) }
+                            onClick = {
+                                MediaHelper.deleteInternalMedia(context, "custom_video", "musaharati_video")
+                                prefs.setMusaharatiConfig(AdhanVideoConfig())
+                            }
                         ) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                         }

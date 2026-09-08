@@ -41,6 +41,7 @@ import com.example.localization.AppLanguage
 import com.example.localization.AppStrings
 import com.example.media.AdhanZipManager
 import com.example.media.MediaHelper
+import com.example.media.MediaPermissionHelper
 import com.example.notifications.AdhanSequencePlayer
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
@@ -199,7 +200,8 @@ fun AdhanTabContent(
                                     currentlyPlayingUri = null
                                 }
                             }
-                        }
+                        },
+                        updates = updates
                     )
                     1 -> SectionAdhanAlert(
                         context = context,
@@ -217,14 +219,16 @@ fun AdhanTabContent(
                                     currentlyPlayingUri = null
                                 }
                             }
-                        }
+                        },
+                        updates = updates
                     )
                     2 -> SectionDuaVideo(
                         context = context,
                         repo = repo,
                         language = language,
                         prayers = fivePrayers,
-                        onPreviewVideo = onPreviewVideo
+                        onPreviewVideo = onPreviewVideo,
+                        updates = updates
                     )
                     3 -> SectionAdhanScreen(
                         context = context,
@@ -249,7 +253,8 @@ private fun SectionAdhanAudio(
     language: AppLanguage,
     prayers: List<PrayerType>,
     currentlyPlayingUri: String?,
-    onTogglePlayAudio: (String?) -> Unit
+    onTogglePlayAudio: (String?) -> Unit,
+    updates: Long = 0L
 ) {
     var selectedPrayerForPicker by remember { mutableStateOf<PrayerType?>(null) }
 
@@ -259,30 +264,52 @@ private fun SectionAdhanAudio(
     ) { uri: Uri? ->
         val p = selectedPrayerForPicker
         if (uri != null && p != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: Exception) {}
-
             val meta = MediaHelper.inspectMediaUri(context, uri, isExpectedVideo = false)
+            val internalFile = MediaHelper.copyMediaToInternal(
+                context = context,
+                sourceUri = uri,
+                folderName = "custom_audio",
+                targetFileNameWithoutExt = "adhan_${p.name.lowercase()}"
+            )
+            val finalUriString = if (internalFile != null) {
+                Uri.fromFile(internalFile).toString()
+            } else {
+                uri.toString()
+            }
+            val finalSize = internalFile?.length() ?: meta.sizeBytes
+
             repo.setAudioConfig(
                 p,
                 PrayerAudioConfig(
-                    uriString = uri.toString(),
+                    uriString = finalUriString,
                     fileName = meta.displayName,
                     durationMs = meta.durationMs,
-                    sizeBytes = meta.sizeBytes,
+                    sizeBytes = finalSize,
                     isCompatible = meta.isCompatible,
                     isEnabled = true
                 )
             )
             Toast.makeText(
                 context,
-                if (language.code == "ar") "تم تعيين صوت أذان ${AppStrings.getPrayerName(p, language)}" else "Adhan audio set",
+                if (language.code == "ar") "✓ تم حفظ وتثبيت صوت أذان ${AppStrings.getPrayerName(p, language)} بنجاح" else "✓ Adhan audio saved permanently",
                 Toast.LENGTH_SHORT
             ).show()
+        }
+    }
+
+    // Permission request launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        audioPickerLauncher.launch("audio/*")
+    }
+
+    val launchAudioPicker: (PrayerType) -> Unit = { prayer ->
+        selectedPrayerForPicker = prayer
+        if (MediaPermissionHelper.hasAudioPermission(context)) {
+            audioPickerLauncher.launch("audio/*")
+        } else {
+            permissionLauncher.launch(MediaPermissionHelper.getAudioPermissions())
         }
     }
 
@@ -417,8 +444,7 @@ private fun SectionAdhanAudio(
 
                             OutlinedButton(
                                 onClick = {
-                                    selectedPrayerForPicker = prayer
-                                    audioPickerLauncher.launch("audio/*")
+                                    launchAudioPicker(prayer)
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -440,8 +466,7 @@ private fun SectionAdhanAudio(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                selectedPrayerForPicker = prayer
-                                audioPickerLauncher.launch("audio/*")
+                                launchAudioPicker(prayer)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16473D))
@@ -468,7 +493,8 @@ private fun SectionAdhanAlert(
     language: AppLanguage,
     prayers: List<PrayerType>,
     currentlyPlayingUri: String?,
-    onTogglePlayAudio: (String?) -> Unit
+    onTogglePlayAudio: (String?) -> Unit,
+    updates: Long = 0L
 ) {
     var selectedPrayerForPicker by remember { mutableStateOf<PrayerType?>(null) }
 
@@ -477,30 +503,51 @@ private fun SectionAdhanAlert(
     ) { uri: Uri? ->
         val p = selectedPrayerForPicker
         if (uri != null && p != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: Exception) {}
-
             val meta = MediaHelper.inspectMediaUri(context, uri, isExpectedVideo = false)
+            val internalFile = MediaHelper.copyMediaToInternal(
+                context = context,
+                sourceUri = uri,
+                folderName = "custom_audio",
+                targetFileNameWithoutExt = "alert_${p.name.lowercase()}"
+            )
+            val finalUriString = if (internalFile != null) {
+                Uri.fromFile(internalFile).toString()
+            } else {
+                uri.toString()
+            }
+            val finalSize = internalFile?.length() ?: meta.sizeBytes
+
             repo.setAlertConfig(
                 p,
                 PrayerAlertSoundConfig(
-                    uriString = uri.toString(),
+                    uriString = finalUriString,
                     fileName = meta.displayName,
                     durationMs = meta.durationMs,
-                    sizeBytes = meta.sizeBytes,
+                    sizeBytes = finalSize,
                     isCompatible = meta.isCompatible,
                     isEnabled = true
                 )
             )
             Toast.makeText(
                 context,
-                if (language.code == "ar") "تم تعيين تنبيه ${AppStrings.getPrayerName(p, language)}" else "Alert tone set",
+                if (language.code == "ar") "✓ تم حفظ وتثبيت تنبيه ${AppStrings.getPrayerName(p, language)} بنجاح" else "✓ Alert tone saved permanently",
                 Toast.LENGTH_SHORT
             ).show()
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        alertPickerLauncher.launch("audio/*")
+    }
+
+    val launchAlertPicker: (PrayerType) -> Unit = { prayer ->
+        selectedPrayerForPicker = prayer
+        if (MediaPermissionHelper.hasAudioPermission(context)) {
+            alertPickerLauncher.launch("audio/*")
+        } else {
+            permissionLauncher.launch(MediaPermissionHelper.getAudioPermissions())
         }
     }
 
@@ -639,8 +686,7 @@ private fun SectionAdhanAlert(
 
                             OutlinedButton(
                                 onClick = {
-                                    selectedPrayerForPicker = prayer
-                                    alertPickerLauncher.launch("audio/*")
+                                    launchAlertPicker(prayer)
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -662,8 +708,7 @@ private fun SectionAdhanAlert(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                selectedPrayerForPicker = prayer
-                                alertPickerLauncher.launch("audio/*")
+                                launchAlertPicker(prayer)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A8A))
@@ -689,7 +734,8 @@ private fun SectionDuaVideo(
     repo: AdhanPreferencesRepository,
     language: AppLanguage,
     prayers: List<PrayerType>,
-    onPreviewVideo: (uri: String?, title: String) -> Unit
+    onPreviewVideo: (uri: String?, title: String) -> Unit,
+    updates: Long = 0L
 ) {
     var selectedPrayerForPicker by remember { mutableStateOf<PrayerType?>(null) }
 
@@ -698,30 +744,51 @@ private fun SectionDuaVideo(
     ) { uri: Uri? ->
         val p = selectedPrayerForPicker
         if (uri != null && p != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: Exception) {}
-
             val meta = MediaHelper.inspectMediaUri(context, uri, isExpectedVideo = true)
+            val internalFile = MediaHelper.copyMediaToInternal(
+                context = context,
+                sourceUri = uri,
+                folderName = "custom_video",
+                targetFileNameWithoutExt = "dua_${p.name.lowercase()}"
+            )
+            val finalUriString = if (internalFile != null) {
+                Uri.fromFile(internalFile).toString()
+            } else {
+                uri.toString()
+            }
+            val finalSize = internalFile?.length() ?: meta.sizeBytes
+
             repo.setDuaConfig(
                 p,
                 PrayerDuaVideoConfig(
-                    uriString = uri.toString(),
+                    uriString = finalUriString,
                     fileName = meta.displayName,
                     durationMs = meta.durationMs,
-                    sizeBytes = meta.sizeBytes,
+                    sizeBytes = finalSize,
                     isCompatible = meta.isCompatible,
                     isEnabled = true
                 )
             )
             Toast.makeText(
                 context,
-                if (language.code == "ar") "تم تعيين فيديو دعاء ${AppStrings.getPrayerName(p, language)}" else "Dua video set",
+                if (language.code == "ar") "✓ تم حفظ وتثبيت فيديو دعاء ${AppStrings.getPrayerName(p, language)} بنجاح" else "✓ Dua video saved permanently",
                 Toast.LENGTH_SHORT
             ).show()
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        videoPickerLauncher.launch("video/*")
+    }
+
+    val launchVideoPicker: (PrayerType) -> Unit = { prayer ->
+        selectedPrayerForPicker = prayer
+        if (MediaPermissionHelper.hasVideoPermission(context)) {
+            videoPickerLauncher.launch("video/*")
+        } else {
+            permissionLauncher.launch(MediaPermissionHelper.getVideoPermissions())
         }
     }
 
@@ -847,8 +914,7 @@ private fun SectionDuaVideo(
 
                             OutlinedButton(
                                 onClick = {
-                                    selectedPrayerForPicker = prayer
-                                    videoPickerLauncher.launch("video/*")
+                                    launchVideoPicker(prayer)
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -865,8 +931,7 @@ private fun SectionDuaVideo(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                selectedPrayerForPicker = prayer
-                                videoPickerLauncher.launch("video/*")
+                                launchVideoPicker(prayer)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF047857))

@@ -3,12 +3,14 @@ package com.example.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.engine.PrayerType
+import com.example.media.MediaHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class AdhanPreferencesRepository(context: Context) {
 
+    private val appContext: Context = context.applicationContext
     private val prefs: SharedPreferences =
         context.getSharedPreferences("adhan_settings_prefs", Context.MODE_PRIVATE)
 
@@ -47,6 +49,7 @@ class AdhanPreferencesRepository(context: Context) {
 
     fun resetAudioConfig(prayer: PrayerType) {
         val p = prayer.name.lowercase()
+        MediaHelper.deleteInternalMedia(appContext, "custom_audio", "adhan_$p")
         prefs.edit()
             .remove("audio_${p}_uri")
             .remove("audio_${p}_name")
@@ -86,6 +89,7 @@ class AdhanPreferencesRepository(context: Context) {
 
     fun resetAlertConfig(prayer: PrayerType) {
         val p = prayer.name.lowercase()
+        MediaHelper.deleteInternalMedia(appContext, "custom_audio", "alert_$p")
         prefs.edit()
             .remove("alert_${p}_uri")
             .remove("alert_${p}_name")
@@ -125,6 +129,7 @@ class AdhanPreferencesRepository(context: Context) {
 
     fun resetDuaConfig(prayer: PrayerType) {
         val p = prayer.name.lowercase()
+        MediaHelper.deleteInternalMedia(appContext, "custom_video", "dua_$p")
         prefs.edit()
             .remove("dua_${p}_uri")
             .remove("dua_${p}_name")

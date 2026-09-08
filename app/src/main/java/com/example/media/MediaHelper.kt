@@ -92,9 +92,122 @@ object MediaHelper {
         if (uriString.isNullOrBlank()) return false
         return try {
             val uri = Uri.parse(uriString)
-            context.contentResolver.openInputStream(uri)?.use { true } ?: false
+            if (uri.scheme == "file") {
+                val file = File(uri.path ?: "")
+                file.exists() && file.length() > 0
+            } else {
+                context.contentResolver.openInputStream(uri)?.use { true } ?: false
+            }
         } catch (e: Exception) {
             false
+        }
+    }
+
+    /**
+     * Copies a selected media file into the app's internal private storage directory.
+     * This guarantees 100% permanence across reboots, avoids Android temporary permission revocations,
+     * and ensures background alarms and notification receivers can play the audio without permission denials.
+     */
+    fun copyMediaToInternal(
+        context: Context,
+        sourceUri: Uri,
+        folderName: String,
+        targetFileNameWithoutExt: String
+    ): File? {
+        return try {
+            val dir = File(context.filesDir, folderName)
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+
+            // Clean up any existing file with this base name
+            dir.listFiles { file ->
+                file.name.startsWith("${targetFileNameWithoutExt}.")
+            }?.forEach { it.delete() }
+
+            // Determine file extension
+            var extension = "mp3"
+            try {
+                context.contentResolver.query(sourceUri, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (cursor.moveToFirst() && nameIndex != -1) {
+                        val name = cursor.getString(nameIndex)
+                        if (!name.isNullOrBlank() && name.contains(".")) {
+                            extension = name.substringAfterLast(".", "mp3")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not determine extension from query: ${e.message}")
+            }
+
+            if (extension.isBlank() || extension.length > 5) {
+                extension = if (folderName.contains("video")) "mp4" else "mp3"
+            }
+
+            val destFile = File(dir, "${targetFileNameWithoutExt}.${extension.lowercase()}")
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            if (destFile.exists() && destFile.length() > 0) {
+                destFile
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to copy media to internal storage: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Deletes internal custom media file matching target base name.
+     */
+    fun deleteInternalMedia(
+        context: Context,
+        folderName: String,
+        targetFileNameWithoutExt: String
+    ): Boolean {
+        return try {
+            val dir = File(context.filesDir, folderName)
+            if (dir.exists()) {
+                dir.listFiles { file ->
+                    file.name.startsWith("${targetFileNameWithoutExt}.")
+                }?.forEach { it.delete() }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete internal media: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * Ensures any stored URI (even legacy content:// URIs) is backed by permanent internal storage.
+     */
+    fun ensureInternalCopy(
+        context: Context,
+        uriString: String?,
+        folderName: String,
+        targetFileNameWithoutExt: String
+    ): String? {
+        if (uriString.isNullOrBlank()) return null
+        return try {
+            val uri = Uri.parse(uriString)
+            if (uri.scheme == "file") {
+                val file = File(uri.path ?: "")
+                if (file.exists() && file.length() > 0) uriString else null
+            } else if (uri.scheme == "content") {
+                val copied = copyMediaToInternal(context, uri, folderName, targetFileNameWithoutExt)
+                if (copied != null) Uri.fromFile(copied).toString() else uriString
+            } else {
+                uriString
+            }
+        } catch (e: Exception) {
+            uriString
         }
     }
 
@@ -108,7 +221,11 @@ object MediaHelper {
         try {
             val uri = Uri.parse(uriString)
             val player = MediaPlayer().apply {
-                setDataSource(context, uri)
+                if (uri.scheme == "file") {
+                    setDataSource(uri.path ?: "")
+                } else {
+                    setDataSource(context, uri)
+                }
                 setOnPreparedListener { start() }
                 setOnCompletionListener {
                     stopAudioPreview()

@@ -166,7 +166,11 @@ object AdhanSequencePlayer {
                         .setUsage(AudioAttributes.USAGE_ALARM)
                         .build()
                 )
-                setDataSource(context, uri)
+                if (uri.scheme == "file") {
+                    setDataSource(uri.path ?: "")
+                } else {
+                    setDataSource(context, uri)
+                }
                 setOnPreparedListener { start() }
                 setOnCompletionListener {
                     stopCurrentPlayer()
