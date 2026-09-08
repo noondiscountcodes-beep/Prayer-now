@@ -101,12 +101,16 @@ class AlarmReceiver : BroadcastReceiver() {
                 manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_ADHAN + prayerType.ordinal, builder.build())
 
                 // Wake screen and automatically open Adhan screen
-                acquireWakeLock(context, "MosqueClock:AdhanScreenWake")
+                acquireWakeLock(context, "MosqueClock:AdhanScreenWake", 90_000L)
                 if (screenConfig.autoOpenOnAdhan) {
                     try {
                         context.startActivity(openIntent)
                     } catch (e: Exception) {
-                        Log.e("AlarmReceiver", "Failed to auto-launch Adhan screen activity", e)
+                        try {
+                            pendingIntent.send()
+                        } catch (e2: Exception) {
+                            Log.e("AlarmReceiver", "Failed to auto-launch Adhan screen activity", e2)
+                        }
                     }
                 }
 
@@ -115,11 +119,20 @@ class AlarmReceiver : BroadcastReceiver() {
                     context = context,
                     prayer = prayerType,
                     onAdhanFinished = {
-                        // After Adhan completes: if Du'aa video is configured, post interactive notification
-                        if (duaConfig.isEnabled && !duaConfig.uriString.isNullOrBlank()) {
+                        // After Adhan completes: immediately launch Du'aa video directly!
+                        val fallbackDuaUri = com.example.engine.PrayerType.entries.map { adhanRepo.getDuaConfig(it) }
+                            .firstOrNull { it.isEnabled && !it.uriString.isNullOrBlank() }?.uriString
+
+                        val targetDuaUri = if (duaConfig.isEnabled && !duaConfig.uriString.isNullOrBlank()) {
+                            duaConfig.uriString
+                        } else {
+                            fallbackDuaUri
+                        }
+
+                        if (!targetDuaUri.isNullOrBlank()) {
                             val duaIntent = Intent(context, MainActivity::class.java).apply {
                                 putExtra("TRIGGER_ADHAN_VIDEO", prayerType.name)
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                             }
                             val duaPendingIntent = PendingIntent.getActivity(
                                 context,
@@ -127,14 +140,28 @@ class AlarmReceiver : BroadcastReceiver() {
                                 duaIntent,
                                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                             )
+
+                            acquireWakeLock(context, "MosqueClock:DuaVideoWake", 60_000L)
+                            try {
+                                context.startActivity(duaIntent)
+                            } catch (e: Exception) {
+                                try {
+                                    duaPendingIntent.send()
+                                } catch (e2: Exception) {
+                                    Log.e("AlarmReceiver", "Failed to launch Dua video intent", e2)
+                                }
+                            }
+
                             val duaTitle = if (lang.code == "ar") "دعاء ما بعد الأذان" else "Post-Adhan Supplication"
-                            val duaMsg = if (lang.code == "ar") "اضغط لتشغيل فيديو دعاء صلاة $localizedName" else "Tap to play supplication video for $localizedName"
+                            val duaMsg = if (lang.code == "ar") "تشغيل فيديو دعاء صلاة $localizedName" else "Playing supplication video for $localizedName"
                             val duaBuilder = NotificationCompat.Builder(context, PrayerNotificationHelper.CHANNEL_ADHAN)
                                 .setSmallIcon(android.R.drawable.ic_media_play)
                                 .setContentTitle(duaTitle)
                                 .setContentText(duaMsg)
-                                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                .setPriority(NotificationCompat.PRIORITY_MAX)
+                                .setCategory(NotificationCompat.CATEGORY_ALARM)
                                 .setContentIntent(duaPendingIntent)
+                                .setFullScreenIntent(duaPendingIntent, true)
                                 .setAutoCancel(true)
                             manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_ADHAN + 100 + prayerType.ordinal, duaBuilder.build())
                         }
@@ -200,12 +227,16 @@ class AlarmReceiver : BroadcastReceiver() {
                     MediaHelper.playAudioPreview(context, alert.soundUri)
 
                     // Wake screen and automatically open Alert Screen
-                    acquireWakeLock(context, "MosqueClock:AlertScreenWake")
+                    acquireWakeLock(context, "MosqueClock:AlertScreenWake", 60_000L)
                     if (screenConfig.autoOpenOnAlerts) {
                         try {
                             context.startActivity(openIntent)
                         } catch (e: Exception) {
-                            Log.e("AlarmReceiver", "Failed to auto-launch Alert screen activity", e)
+                            try {
+                                pendingIntent.send()
+                            } catch (e2: Exception) {
+                                Log.e("AlarmReceiver", "Failed to auto-launch Alert screen activity", e2)
+                            }
                         }
                     }
                 }

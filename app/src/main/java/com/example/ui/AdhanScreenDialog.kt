@@ -122,9 +122,18 @@ fun AdhanFullScreenView(
     // Auto-launch Dua video when Adhan sequence completes
     LaunchedEffect(playbackState.stage) {
         if (playbackState.stage == AdhanPlaybackStage.FINISHED) {
-            if (duaConfig.isEnabled && !duaConfig.uriString.isNullOrBlank()) {
-                delay(500)
-                onOpenDuaVideo?.invoke(duaConfig.uriString)
+            val fallbackUri = com.example.engine.PrayerType.entries.map { repo.getDuaConfig(it) }
+                .firstOrNull { it.isEnabled && !it.uriString.isNullOrBlank() }?.uriString
+
+            val targetUri = if (duaConfig.isEnabled && !duaConfig.uriString.isNullOrBlank()) {
+                duaConfig.uriString
+            } else {
+                fallbackUri
+            }
+
+            if (!targetUri.isNullOrBlank()) {
+                delay(400)
+                onOpenDuaVideo?.invoke(targetUri)
             }
         }
     }
@@ -177,9 +186,9 @@ fun AdhanFullScreenView(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.82f),
-                            Color.Black.copy(alpha = 0.40f),
-                            Color.Black.copy(alpha = 0.90f)
+                            Color.Black.copy(alpha = 0.45f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.65f)
                         )
                     )
                 )

@@ -758,22 +758,34 @@ private fun SectionDuaVideo(
             }
             val finalSize = internalFile?.length() ?: meta.sizeBytes
 
-            repo.setDuaConfig(
-                p,
-                PrayerDuaVideoConfig(
-                    uriString = finalUriString,
-                    fileName = meta.displayName,
-                    durationMs = meta.durationMs,
-                    sizeBytes = finalSize,
-                    isCompatible = meta.isCompatible,
-                    isEnabled = true
-                )
+            val newConfig = PrayerDuaVideoConfig(
+                uriString = finalUriString,
+                fileName = meta.displayName,
+                durationMs = meta.durationMs,
+                sizeBytes = finalSize,
+                isCompatible = meta.isCompatible,
+                isEnabled = true
             )
-            Toast.makeText(
-                context,
-                if (language.code == "ar") "✓ تم حفظ وتثبيت فيديو دعاء ${AppStrings.getPrayerName(p, language)} بنجاح" else "✓ Dua video saved permanently",
-                Toast.LENGTH_SHORT
-            ).show()
+            repo.setDuaConfig(p, newConfig)
+
+            // Auto-replicate to any prayers that don't have a video yet
+            val otherEmptyPrayers = prayers.filter { it != p && repo.getDuaConfig(it).uriString.isNullOrBlank() }
+            if (otherEmptyPrayers.size == prayers.size - 1) {
+                otherEmptyPrayers.forEach { otherP ->
+                    repo.setDuaConfig(otherP, newConfig)
+                }
+                Toast.makeText(
+                    context,
+                    if (language.code == "ar") "✓ تم حفظ وتطبيق فيديو الدعاء على جميع الصلوات الخمس بنجاح" else "✓ Dua video applied to all 5 prayers",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                Toast.makeText(
+                    context,
+                    if (language.code == "ar") "✓ تم حفظ وتثبيت فيديو دعاء ${AppStrings.getPrayerName(p, language)} بنجاح" else "✓ Dua video saved permanently",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
@@ -927,6 +939,28 @@ private fun SectionDuaVideo(
                                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedButton(
+                            onClick = {
+                                prayers.forEach { p ->
+                                    repo.setDuaConfig(p, config)
+                                }
+                                Toast.makeText(
+                                    context,
+                                    if (language.code == "ar") "✓ تم تطبيق هذا الفيديو على جميع الصلوات الخمس بنجاح" else "✓ Applied video to all 5 prayers",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.DoneAll, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (language.code == "ar") "تطبيق هذا الفيديو على جميع الصلوات الـ 5" else "Apply to all 5 prayers",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     } else {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
@@ -970,14 +1004,20 @@ private fun SectionAdhanScreen(
 
     // ZIP file picker with security validation
     val zipPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: Exception) {}
             isExtracting = true
             zipExtractionMessage = null
 
             // Extract securely using AdhanZipManager
-            val result = AdhanZipManager.extractZipFile(context, uri, targetPrayer)
+            val result = AdhanZipManager.extractZipFile(context, uri, targetPrayer, applyToAllIfEmpty = true)
             isExtracting = false
 
             if (result.success) {
@@ -987,8 +1027,8 @@ private fun SectionAdhanScreen(
                 repo.setScreenConfig(targetPrayer, screenConfig)
 
                 zipExtractionMessage = if (language.code == "ar") {
-                    "✓ تم استخراج ${result.extractedFiles.size} صورة متوافقة بنجاح" +
-                            if (result.ignoredCount > 0) " (تم تجاهل ${result.ignoredCount} ملفات غير متوافقة بأمان)" else ""
+                    "✓ تم استخراج ${result.extractedFiles.size} صورة بنجاح وتطبيقها على شاشة الأذان" +
+                            if (result.ignoredCount > 0) " (تم تجاهل ${result.ignoredCount} ملفات بأمان)" else ""
                 } else {
                     "✓ Extracted ${result.extractedFiles.size} images successfully"
                 }
@@ -1090,7 +1130,16 @@ private fun SectionAdhanScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { zipPickerLauncher.launch("application/zip") },
+                        onClick = {
+                            zipPickerLauncher.launch(
+                                arrayOf(
+                                    "application/zip",
+                                    "application/x-zip-compressed",
+                                    "application/octet-stream",
+                                    "*/*"
+                                )
+                            )
+                        },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF164E63)),
                         enabled = !isExtracting
@@ -1107,6 +1156,21 @@ private fun SectionAdhanScreen(
                     }
 
                     if (extractedImages.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                val count = AdhanZipManager.copyImagesToAllPrayers(context, targetPrayer)
+                                Toast.makeText(
+                                    context,
+                                    if (language.code == "ar") "✓ تم تطبيق هذه الصور على جميع الصلوات الخمس بنجاح ($count صلوات)" else "✓ Applied to all prayers",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        ) {
+                            Icon(Icons.Default.DoneAll, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (language.code == "ar") "نسخ للكل" else "Apply all", style = MaterialTheme.typography.bodySmall)
+                        }
+
                         OutlinedButton(
                             onClick = {
                                 AdhanZipManager.deleteImagePack(context, targetPrayer)

@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -151,6 +152,7 @@ fun MosqueClockScreen(
     }
 
     // Video Dialog state
+    val context = LocalContext.current
     var activeVideoUri by remember { mutableStateOf<String?>(null) }
     var activeVideoTitle by remember { mutableStateOf("") }
     var showVideoDialog by remember { mutableStateOf(false) }
@@ -160,10 +162,22 @@ fun MosqueClockScreen(
         if (pendingVideoPrayer != null) {
             val pt = try { PrayerType.valueOf(pendingVideoPrayer) } catch (e: Exception) { null }
             if (pt != null) {
-                val cfg = prefs.getAdhanConfig(pt)
-                activeVideoUri = cfg.uriString
-                activeVideoTitle = "${AppStrings.tabAdhan(language)}: ${AppStrings.getPrayerName(pt, language)}"
-                showVideoDialog = true
+                val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
+                val duaCfg = adhanRepo.getDuaConfig(pt)
+                val fallbackUri = PrayerType.entries.map { adhanRepo.getDuaConfig(it) }
+                    .firstOrNull { it.isEnabled && !it.uriString.isNullOrBlank() }?.uriString
+
+                val finalUri = if (duaCfg.isEnabled && !duaCfg.uriString.isNullOrBlank()) {
+                    duaCfg.uriString
+                } else {
+                    fallbackUri ?: prefs.getAdhanConfig(pt).uriString
+                }
+
+                if (!finalUri.isNullOrBlank()) {
+                    activeVideoUri = finalUri
+                    activeVideoTitle = if (language.code == "ar") "دعاء ما بعد الأذان — صلاة ${AppStrings.getPrayerName(pt, language)}" else "Post-Adhan Supplication — ${AppStrings.getPrayerName(pt, language)}"
+                    showVideoDialog = true
+                }
                 onVideoHandled()
             }
         }

@@ -175,7 +175,9 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             pendingVideoPrayerState.value = prayerStr
                                         }
-                                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                                        screenState.value = ScreenState.MOSQUE_CLOCK
+                                        wakeScreenAndShowOverLockscreen()
+                                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                                     }
                                 )
                             }
@@ -216,8 +218,11 @@ class MainActivity : ComponentActivity() {
         }
 
         if (prayerVideo != null) {
+            pendingAdhanScreenPrayer.value = null
             pendingVideoPrayerState.value = prayerVideo
             screenState.value = ScreenState.MOSQUE_CLOCK
+            wakeScreenAndShowOverLockscreen()
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         if (musaharati) {
             pendingMusaharatiState.value = true

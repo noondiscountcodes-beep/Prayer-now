@@ -3,6 +3,7 @@ package com.example.media
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import com.example.data.AdhanPreferencesRepository
 import com.example.engine.PrayerType
 import java.io.File
 import java.io.FileOutputStream
@@ -34,12 +35,33 @@ object AdhanZipManager {
         return dir
     }
 
+    /**
+     * Retrieves extracted images for a prayer.
+     * If no images exist specifically for this prayer, it gracefully falls back to any images
+     * extracted for other prayers, ensuring the Adhan screen always has beautiful backgrounds.
+     */
     fun getExtractedImages(context: Context, prayer: PrayerType): List<File> {
         val dir = getImagesDirectory(context, prayer)
         val files = dir.listFiles { file ->
             file.isFile && SUPPORTED_EXTENSIONS.contains(file.extension.lowercase())
         }
-        return files?.sortedBy { it.name } ?: emptyList()
+        if (!files.isNullOrEmpty()) {
+            return files.sortedBy { it.name }
+        }
+
+        // Fallback: check other prayers
+        for (otherPrayer in PrayerType.entries) {
+            if (otherPrayer != prayer) {
+                val otherDir = getImagesDirectory(context, otherPrayer)
+                val otherFiles = otherDir.listFiles { file ->
+                    file.isFile && SUPPORTED_EXTENSIONS.contains(file.extension.lowercase())
+                }
+                if (!otherFiles.isNullOrEmpty()) {
+                    return otherFiles.sortedBy { it.name }
+                }
+            }
+        }
+        return emptyList()
     }
 
     fun deleteImagePack(context: Context, prayer: PrayerType): Boolean {
@@ -54,7 +76,44 @@ object AdhanZipManager {
         }
     }
 
-    fun extractZipFile(context: Context, zipUri: Uri, prayer: PrayerType): ZipExtractResult {
+    /**
+     * Replicates images from one prayer to all 5 obligatory prayers and updates their preferences.
+     */
+    fun copyImagesToAllPrayers(context: Context, sourcePrayer: PrayerType): Int {
+        val sourceImages = getExtractedImages(context, sourcePrayer)
+        if (sourceImages.isEmpty()) return 0
+
+        val repo = AdhanPreferencesRepository(context)
+        var updatedCount = 0
+
+        for (targetPrayer in PrayerType.entries) {
+            if (targetPrayer != sourcePrayer) {
+                val targetDir = getImagesDirectory(context, targetPrayer)
+                targetDir.mkdirs()
+                targetDir.listFiles()?.forEach { it.delete() }
+
+                sourceImages.forEach { src ->
+                    val dest = File(targetDir, src.name)
+                    src.copyTo(dest, overwrite = true)
+                }
+
+                val currentConfig = repo.getScreenConfig(targetPrayer)
+                repo.setScreenConfig(
+                    targetPrayer,
+                    currentConfig.copy(selectedImageNames = sourceImages.map { it.name })
+                )
+                updatedCount++
+            }
+        }
+        return updatedCount
+    }
+
+    fun extractZipFile(
+        context: Context,
+        zipUri: Uri,
+        prayer: PrayerType,
+        applyToAllIfEmpty: Boolean = true
+    ): ZipExtractResult {
         val outDir = getImagesDirectory(context, prayer)
         val canonicalDestDirPath = outDir.canonicalPath
 
@@ -84,14 +143,11 @@ object AdhanZipManager {
                 val isDirectory = entry.isDirectory
 
                 if (!isDirectory) {
-                    // Extract extension
                     val ext = entryName.substringAfterLast('.', "").lowercase()
 
-                    // Check if supported image
                     if (SUPPORTED_EXTENSIONS.contains(ext)) {
-                        // Extract only file name without nested directories to avoid nested path complications
                         val safeFileName = File(entryName).name
-                        val targetFile = File(outDir, "img_${System.currentTimeMillis()}_$safeFileName")
+                        val targetFile = File(outDir, "img_${System.currentTimeMillis()}_${fileCount}_$safeFileName")
 
                         // 2. Zip Slip / Path Traversal Security check
                         val canonicalTargetFilePath = targetFile.canonicalPath
@@ -140,7 +196,6 @@ object AdhanZipManager {
                             }
                         }
                     } else {
-                        // Unsupported file or executable -> ignore safely
                         ignoredFiles++
                     }
                 }
@@ -155,6 +210,20 @@ object AdhanZipManager {
                     ignoredCount = ignoredFiles,
                     errorMessage = "لم يتم العثور على أي صور مدعومة (JPG, PNG, WEBP) داخل ملف الـ ZIP"
                 )
+            }
+
+            // If other prayers currently have no images, automatically propagate to all prayers
+            if (applyToAllIfEmpty) {
+                val hasOtherImages = PrayerType.entries.any { p ->
+                    if (p == prayer) false else {
+                        val oDir = getImagesDirectory(context, p)
+                        val oFiles = oDir.listFiles { f -> f.isFile && SUPPORTED_EXTENSIONS.contains(f.extension.lowercase()) }
+                        !oFiles.isNullOrEmpty()
+                    }
+                }
+                if (!hasOtherImages) {
+                    copyImagesToAllPrayers(context, prayer)
+                }
             }
 
             return ZipExtractResult(
