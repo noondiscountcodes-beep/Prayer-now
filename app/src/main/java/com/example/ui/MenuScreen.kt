@@ -78,9 +78,11 @@ fun MenuScreen(
     var previewVideoTitle by remember { mutableStateOf("") }
     var showVideoPreviewDialog by remember { mutableStateOf(false) }
 
-    // Adhan full-screen preview state
+    // Adhan & Alert full-screen preview state
     var showAdhanScreenPreview by remember { mutableStateOf(false) }
     var previewAdhanPrayer by remember { mutableStateOf(PrayerType.FAJR) }
+    var previewAdhanTriggerType by remember { mutableStateOf("ADHAN") }
+    var previewAdhanAlertMinutes by remember { mutableStateOf<Int?>(null) }
 
     Scaffold(
         topBar = {
@@ -166,6 +168,14 @@ fun MenuScreen(
                         },
                         onPreviewAdhanScreen = { prayer ->
                             previewAdhanPrayer = prayer
+                            previewAdhanTriggerType = "ADHAN"
+                            previewAdhanAlertMinutes = null
+                            showAdhanScreenPreview = true
+                        },
+                        onPreviewAlertScreen = { prayer, minutes ->
+                            previewAdhanPrayer = prayer
+                            previewAdhanTriggerType = "ALERT"
+                            previewAdhanAlertMinutes = minutes
                             showAdhanScreenPreview = true
                         }
                     )
@@ -198,6 +208,8 @@ fun MenuScreen(
         AdhanFullScreenView(
             prayer = previewAdhanPrayer,
             prefs = prefs,
+            triggerType = previewAdhanTriggerType,
+            alertMinutes = previewAdhanAlertMinutes,
             onDismiss = { showAdhanScreenPreview = false },
             onOpenDuaVideo = { uri ->
                 showAdhanScreenPreview = false
@@ -835,13 +847,15 @@ private fun AdhanTab(
     prefs: AppPreferences,
     language: AppLanguage,
     onPreviewVideo: (uri: String?, title: String) -> Unit,
-    onPreviewAdhanScreen: (prayer: PrayerType) -> Unit
+    onPreviewAdhanScreen: (prayer: PrayerType) -> Unit,
+    onPreviewAlertScreen: (prayer: PrayerType, minutes: Int) -> Unit
 ) {
     AdhanTabContent(
         prefs = prefs,
         language = language,
         onPreviewVideo = onPreviewVideo,
-        onPreviewAdhanScreen = onPreviewAdhanScreen
+        onPreviewAdhanScreen = onPreviewAdhanScreen,
+        onPreviewAlertScreen = onPreviewAlertScreen
     )
 }
 

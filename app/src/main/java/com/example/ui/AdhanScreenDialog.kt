@@ -29,7 +29,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -194,167 +196,226 @@ fun AdhanFullScreenView(
                 )
         )
 
-        // 3. Immersive Content Layout (respects safe insets while keeping background 100% full screen)
+        // 3. Content Layout - true full-screen experience with no artificial frame
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().coerceAtLeast(16.dp),
+                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().coerceAtLeast(16.dp),
+                    start = 16.dp,
+                    end = 16.dp
+                ),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar: Close button, Live status badge, and Mute button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = {
-                        AdhanSequencePlayer.stopAll()
-                        onDismiss()
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                }
+            // Top Section: Force LTR row so Controls are on the physical LEFT and Adhan title is on physical RIGHT
+            val prayerName = AppStrings.getPrayerName(prayer, language)
+            val isAdhan = (triggerType != "ALERT" && triggerType != "SUHOOR" && triggerType != "IFTAR_CANNON")
 
-                // Stage status badge
-                val stageBadgeText = when (triggerType) {
-                    "ALERT" -> if (language.code == "ar") "🔔 تنبيه اقتراب موعد الصلاة" else "🔔 Prayer Reminder"
-                    "SUHOOR" -> if (language.code == "ar") "🌙 وقت السحور المبارك" else "🌙 Blessed Suhoor Time"
-                    "IFTAR_CANNON" -> if (language.code == "ar") "💥 مدفع الإفطار في رمضان" else "💥 Ramadan Iftar Cannon"
-                    else -> when (playbackState.stage) {
-                        AdhanPlaybackStage.PLAYING_ALERT -> if (language.code == "ar") "🔔 صوت التنبيه" else "🔔 Alert Sound"
-                        AdhanPlaybackStage.PLAYING_ADHAN -> if (language.code == "ar") "🕌 صوت الأذان المبارك" else "🕌 Adhan Audio"
-                        AdhanPlaybackStage.FINISHED -> if (language.code == "ar") "✓ اكتمل الأذان" else "✓ Adhan Completed"
-                        AdhanPlaybackStage.IDLE -> if (language.code == "ar") "شاشة الأذان المبارك" else "Adhan Screen"
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = when (triggerType) {
-                        "ALERT" -> Color(0xFFD97706).copy(alpha = 0.95f)
-                        "SUHOOR" -> Color(0xFF4F46E5).copy(alpha = 0.95f)
-                        "IFTAR_CANNON" -> Color(0xFFE11D48).copy(alpha = 0.95f)
-                        else -> when (playbackState.stage) {
-                            AdhanPlaybackStage.PLAYING_ALERT -> Color(0xFFD97706).copy(alpha = 0.95f)
-                            AdhanPlaybackStage.PLAYING_ADHAN -> Color(0xFF0D9488).copy(alpha = 0.95f)
-                            else -> Color(0xFF1E293B).copy(alpha = 0.90f)
-                        }
-                    },
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f))
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Action buttons on physical LEFT
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            if (playbackState.isPlaying) Icons.Default.VolumeUp else Icons.Default.NotificationsActive,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = stageBadgeText,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                        IconButton(
+                            onClick = { AdhanSequencePlayer.stopAll() },
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.VolumeOff, contentDescription = "Mute", tint = Color.White)
+                        }
 
-                IconButton(
-                    onClick = { AdhanSequencePlayer.stopAll() },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                ) {
-                    Icon(Icons.Default.VolumeOff, contentDescription = "Mute", tint = Color.White)
+                        IconButton(
+                            onClick = {
+                                AdhanSequencePlayer.stopAll()
+                                onDismiss()
+                            },
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                    }
+
+                    // Top-Right on physical RIGHT: "أذان + اسم الصلاة" at Adhan
+                    if (isAdhan) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.Black.copy(alpha = 0.70f),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, IslamicGoldLight.copy(alpha = 0.6f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (language.code == "ar") "أذان $prayerName" else "Adhan $prayerName",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = IslamicGoldPrimary,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    } else if (triggerType == "SUHOOR") {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF4F46E5).copy(alpha = 0.90f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = if (language.code == "ar") "السحور" else "Suhoor",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
+                        }
+                    } else if (triggerType == "IFTAR_CANNON") {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFFE11D48).copy(alpha = 0.90f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = if (language.code == "ar") "مدفع الإفطار" else "Iftar Cannon",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
+                        }
+                    } else {
+                        // In ALERT mode: top right is kept clean
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
                 }
             }
 
-            // Middle: Scrollable center area for responsiveness across phones & tablets
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            // Center Area:
+            // At ALERT: Prominently centered "يتبقى + عدد الدقائق + على أذان + اسم الصلاة"
+            // At ADHAN: Clean view, glowing digital clock (no text clutter)
+            Box(
                 modifier = Modifier
-                    .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState())
-                    .padding(vertical = 12.dp)
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = IslamicGoldLight,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                val prayerName = AppStrings.getPrayerName(prayer, language)
-                if (screenConfig.showPrayerName) {
-                    val headlineText = when (triggerType) {
-                        "ALERT" -> if (language.code == "ar") "متبقي ${alertMinutes ?: 15} دقيقة على صلاة $prayerName" else "${alertMinutes ?: 15} min before $prayerName"
-                        "SUHOOR" -> if (language.code == "ar") "حان موعد السحور المبارك — صياماً مقبولاً" else "Blessed Suhoor Time"
-                        "IFTAR_CANNON" -> if (language.code == "ar") "💥 مدفع الإفطار.. اضْرِب!" else "💥 Ramadan Iftar Cannon"
-                        else -> if (language.code == "ar") "حان الآن موعد أذان صلاة $prayerName" else "Now Adhan for $prayerName"
+                if (triggerType == "ALERT") {
+                    val alertMins = alertMinutes ?: 15
+                    val minWord = when {
+                        alertMins == 1 -> if (language.code == "ar") "دقيقة واحدة" else "1 minute"
+                        alertMins == 2 -> if (language.code == "ar") "دقيقتان" else "2 minutes"
+                        alertMins in 3..10 -> if (language.code == "ar") "$alertMins دقائق" else "$alertMins minutes"
+                        else -> if (language.code == "ar") "$alertMins دقيقة" else "$alertMins minutes"
                     }
-                    Text(
-                        text = headlineText,
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = IslamicGoldPrimary,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                    val alertCenterText = if (language.code == "ar") {
+                        "يتبقى $minWord على أذان $prayerName"
+                    } else {
+                        "$minWord remaining until $prayerName Adhan"
+                    }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = Color.Black.copy(alpha = 0.75f),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF59E0B)),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp)
+                        ) {
+                            Text(
+                                text = "🔔",
+                                fontSize = 36.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = alertCenterText,
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    lineHeight = 36.sp
+                                ),
+                                color = Color(0xFFFDE68A),
+                                textAlign = TextAlign.Center
+                            )
 
-                if (screenConfig.showClock) {
-                    Text(
-                        text = timeStr,
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 2.sp
-                        ),
-                        color = Color(0xFF38BDF8), // Glowing Cyan LED clock
-                        textAlign = TextAlign.Center
-                    )
-                }
+                            if (screenConfig.showClock) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = timeStr,
+                                    style = MaterialTheme.typography.displayMedium.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 2.sp
+                                    ),
+                                    color = Color(0xFF38BDF8),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Adhan, Suhoor, or Iftar Cannon center view
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        if (triggerType == "SUHOOR") {
+                            Text(
+                                text = if (language.code == "ar") "حان موعد السحور المبارك" else "Blessed Suhoor Time",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = IslamicGoldPrimary,
+                                fontWeight = FontWeight.ExtraBold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        } else if (triggerType == "IFTAR_CANNON") {
+                            Text(
+                                text = if (language.code == "ar") "💥 مدفع الإفطار.. اضْرِب!" else "💥 Ramadan Iftar Cannon",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = Color(0xFFFB7185),
+                                fontWeight = FontWeight.ExtraBold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Calligraphy / Islamic Inscription
-                val calligraphyText = when (triggerType) {
-                    "ALERT" -> if (language.code == "ar") "حَيَّ عَلَى الصَّلَاةِ • حَيَّ عَلَى الْفَلَاحِ\nتأهب للوضوء والاستعداد لصلاة $prayerName" else "Hurry to prayer • Prepare for $prayerName"
-                    "SUHOOR" -> if (language.code == "ar") "«تَسَحَّرُوا فَإِنَّ فِي السَّحُورِ بَرَكَةً»\nاصحى يا نايم وحّد الدايم.. حان موعد السحور المبارك" else "Take Suhoor, for indeed in Suhoor there is blessing"
-                    "IFTAR_CANNON" -> if (language.code == "ar") "«ذَهَبَ الظَّمَأُ وَابْتَلَّتِ الْعُرُوقُ وَثَبَتَ الأَجْرُ إِنْ شَاءَ اللَّهُ»\nاللَّهُمَّ لَكَ صُمْتُ وَعَلَى رِزْقِكَ أَفْطَرْتُ • صياماً مقبولاً وإفطاراً شهياً" else "The thirst is gone, the veins are moistened, and the reward is confirmed, if Allah wills"
-                    else -> "اللهُ أَكْبَرُ • اللهُ أَكْبَرُ\nأَشْهَدُ أَن لَّا إِلَٰهَ إِلَّا اللَّهُ • أَشْهَدُ أَنَّ مُحَمَّدًا رَّسُولُ اللَّهِ"
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.Black.copy(alpha = 0.55f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, IslamicGoldLight.copy(alpha = 0.4f)),
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                ) {
-                    Text(
-                        text = calligraphyText,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        lineHeight = 28.sp
-                    )
+                        if (screenConfig.showClock) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color.Black.copy(alpha = 0.60f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, IslamicGoldLight.copy(alpha = 0.4f)),
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 20.dp)
+                                ) {
+                                    Text(
+                                        text = timeStr,
+                                        style = MaterialTheme.typography.displayLarge.copy(
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Black,
+                                            letterSpacing = 2.sp
+                                        ),
+                                        color = Color(0xFF38BDF8),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

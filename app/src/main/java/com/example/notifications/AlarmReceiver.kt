@@ -65,7 +65,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 val openIntent = Intent(context, MainActivity::class.java).apply {
                     putExtra("TRIGGER_ADHAN_SCREEN", prayerType.name)
                     putExtra("TRIGGER_SCREEN_TYPE", "ADHAN")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 }
                 val pendingIntent = PendingIntent.getActivity(
                     context,
@@ -102,15 +105,13 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 // Wake screen and automatically open Adhan screen
                 acquireWakeLock(context, "MosqueClock:AdhanScreenWake", 90_000L)
-                if (screenConfig.autoOpenOnAdhan) {
+                try {
+                    context.startActivity(openIntent)
+                } catch (e: Exception) {
                     try {
-                        context.startActivity(openIntent)
-                    } catch (e: Exception) {
-                        try {
-                            pendingIntent.send()
-                        } catch (e2: Exception) {
-                            Log.e("AlarmReceiver", "Failed to auto-launch Adhan screen activity", e2)
-                        }
+                        pendingIntent.send()
+                    } catch (e2: Exception) {
+                        Log.e("AlarmReceiver", "Failed to auto-launch Adhan screen activity", e2)
                     }
                 }
 
@@ -200,7 +201,10 @@ class AlarmReceiver : BroadcastReceiver() {
                         putExtra("TRIGGER_ADHAN_SCREEN", targetPrayerType.name)
                         putExtra("TRIGGER_SCREEN_TYPE", "ALERT")
                         putExtra("TRIGGER_ALERT_MINUTES", alert.minutesBefore)
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     }
                     val pendingIntent = PendingIntent.getActivity(
                         context,
@@ -228,15 +232,13 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     // Wake screen and automatically open Alert Screen
                     acquireWakeLock(context, "MosqueClock:AlertScreenWake", 60_000L)
-                    if (screenConfig.autoOpenOnAlerts) {
+                    try {
+                        context.startActivity(openIntent)
+                    } catch (e: Exception) {
                         try {
-                            context.startActivity(openIntent)
-                        } catch (e: Exception) {
-                            try {
-                                pendingIntent.send()
-                            } catch (e2: Exception) {
-                                Log.e("AlarmReceiver", "Failed to auto-launch Alert screen activity", e2)
-                            }
+                            pendingIntent.send()
+                        } catch (e2: Exception) {
+                            Log.e("AlarmReceiver", "Failed to auto-launch Alert screen activity", e2)
                         }
                     }
                 }

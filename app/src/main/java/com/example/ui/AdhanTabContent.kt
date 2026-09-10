@@ -52,7 +52,8 @@ fun AdhanTabContent(
     prefs: AppPreferences,
     language: AppLanguage,
     onPreviewVideo: (uri: String?, title: String) -> Unit,
-    onPreviewAdhanScreen: (prayer: PrayerType) -> Unit
+    onPreviewAdhanScreen: (prayer: PrayerType) -> Unit,
+    onPreviewAlertScreen: (prayer: PrayerType, minutes: Int) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val repo = remember { AdhanPreferencesRepository(context) }
@@ -235,7 +236,8 @@ fun AdhanTabContent(
                         repo = repo,
                         language = language,
                         prayers = fivePrayers,
-                        onPreviewAdhanScreen = onPreviewAdhanScreen
+                        onPreviewAdhanScreen = onPreviewAdhanScreen,
+                        onPreviewAlertScreen = onPreviewAlertScreen
                     )
                 }
             }
@@ -991,7 +993,8 @@ private fun SectionAdhanScreen(
     repo: AdhanPreferencesRepository,
     language: AppLanguage,
     prayers: List<PrayerType>,
-    onPreviewAdhanScreen: (prayer: PrayerType) -> Unit
+    onPreviewAdhanScreen: (prayer: PrayerType) -> Unit,
+    onPreviewAlertScreen: (prayer: PrayerType, minutes: Int) -> Unit = { _, _ -> }
 ) {
     // Current selected prayer to customize screen for
     var targetPrayer by remember { mutableStateOf(PrayerType.FAJR) }
@@ -1499,12 +1502,12 @@ private fun SectionAdhanScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Big Preview Button: "معاينة شاشة الأذان الآن"
+        // Big Preview Buttons: "معاينة شاشة الأذان" and "معاينة شاشة التنبيه"
         Button(
             onClick = { onPreviewAdhanScreen(targetPrayer) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(50.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488))
         ) {
@@ -1518,6 +1521,36 @@ private fun SectionAdhanScreen(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = {
+                val alertsRepo = com.example.data.AlertsRepository(context)
+                val alertItem = alertsRepo.getAllAlerts().firstOrNull {
+                    it.isEnabled && (it.targetPrayer == "ALL" || it.targetPrayer == targetPrayer.name)
+                }
+                val advanceMinutes = alertItem?.minutesBefore ?: 15
+                onPreviewAlertScreen(targetPrayer, advanceMinutes)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF59E0B)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.7f))
+        ) {
+            Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (language.code == "ar")
+                    "معاينة شاشة تنبيه ${AppStrings.getPrayerName(targetPrayer, language)} الآن"
+                else
+                    "Preview Alert Screen Now",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
             )
         }
 
