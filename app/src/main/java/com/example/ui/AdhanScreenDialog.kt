@@ -319,9 +319,9 @@ fun AdhanFullScreenView(
                         else -> if (language.code == "ar") "$alertMins دقيقة" else "$alertMins minutes"
                     }
                     val alertCenterText = if (language.code == "ar") {
-                        "يتبقى $minWord على أذان $prayerName"
+                        "يتبقى $minWord على أذان صلاة $prayerName"
                     } else {
-                        "$minWord remaining until $prayerName Adhan"
+                        "$minWord remaining until $prayerName prayer Adhan"
                     }
 
                     Surface(

@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.Manifest
+import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,6 +9,7 @@ import android.location.Geocoder
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -702,6 +704,130 @@ private fun AlertsTab(prefs: AppPreferences, language: AppLanguage) {
         }
 
         Spacer(modifier = Modifier.height(12.dp))
+
+        // Reliability / Exact Alarm Status Card
+        val alarmManager = remember { context.getSystemService(Context.ALARM_SERVICE) as AlarmManager }
+        val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as PowerManager }
+        val canExactAlarms = remember(alertsList) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) alarmManager.canScheduleExactAlarms() else true
+        }
+        val isIgnoringBattery = remember(alertsList) {
+            powerManager.isIgnoringBatteryOptimizations(context.packageName)
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(12.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (!canExactAlarms || !isIgnoringBattery) Color(0xFFF59E0B) else MosqueCardBorder)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (language.code == "ar") "⚡ دقة انطلاق التنبيهات والأذان" else "⚡ Alarm Precision & Reliability",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = IslamicGoldLight
+                    )
+                    IconButton(
+                        onClick = {
+                            AlarmScheduler.scheduleAll(context)
+                            WidgetSyncHelper.syncAll(context)
+                            Toast.makeText(context, if (language.code == "ar") "تم فحص وإعادة جدولة كافة التنبيهات والأذان بنجاح" else "All alarms rescheduled successfully", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = IslamicGoldPrimary, modifier = Modifier.size(18.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Exact Alarms Chip / Button
+                    if (canExactAlarms) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF065F46).copy(alpha = 0.5f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
+                        ) {
+                            Text(
+                                text = if (language.code == "ar") "✓ المنبهات الدقيقة مفعّلة" else "✓ Exact Alarms Active",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF6EE7B7),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    try {
+                                        context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
+                                    } catch (e: Exception) {
+                                        context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B), contentColor = Color.Black),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (language.code == "ar") "⚠️ تفعيل المنبهات الدقيقة" else "⚠️ Enable Exact Alarms",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+
+                    // Battery Optimization Chip / Button
+                    if (isIgnoringBattery) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF065F46).copy(alpha = 0.5f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
+                        ) {
+                            Text(
+                                text = if (language.code == "ar") "✓ مستثنى من توفير البطارية" else "✓ Unrestricted Battery",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF6EE7B7),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}")))
+                                } catch (e: Exception) {
+                                    try {
+                                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                    } catch (e2: Exception) {
+                                        context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444), contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (language.code == "ar") "استثناء من توفير البطارية" else "Exempt from Battery Saver",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         if (alertsList.isEmpty()) {
             Box(

@@ -176,39 +176,51 @@ class AlarmReceiver : BroadcastReceiver() {
 
             ACTION_CUSTOM_ALERT -> {
                 val alertId = intent.getStringExtra(EXTRA_ALERT_ID) ?: ""
+                val prayerNameExtra = intent.getStringExtra(EXTRA_PRAYER_NAME)
                 val repo = AlertsRepository(context)
                 val alert = repo.getAllAlerts().find { it.id == alertId }
-                if (alert != null && alert.isEnabled) {
-                    val targetName = alert.getPrayerDisplayName(lang)
-                    val title = if (lang.code == "ar") "تنبيه اقتراب الصلاة" else "Prayer Reminder"
-                    val message = if (lang.code == "ar") {
-                        "متبقي ${alert.minutesBefore} دقيقة على صلاة $targetName"
-                    } else if (lang.code == "fr") {
-                        "${alert.minutesBefore} min avant la prière de $targetName"
+
+                // Resolve the exact prayer for which this alert was scheduled (e.g. DHUHR, ASR, MAGHRIB, etc.)
+                val targetPrayerType = try {
+                    if (!prayerNameExtra.isNullOrEmpty()) {
+                        PrayerType.valueOf(prayerNameExtra)
+                    } else if (alert != null && alert.targetPrayer != "ALL") {
+                        PrayerType.valueOf(alert.targetPrayer)
                     } else {
-                        "${alert.minutesBefore} minutes before $targetName prayer"
+                        PrayerType.FAJR
+                    }
+                } catch (e: Exception) {
+                    PrayerType.FAJR
+                }
+
+                if (alert == null || alert.isEnabled) {
+                    val minutesBefore = alert?.minutesBefore ?: 15
+                    val actualPrayerName = AppStrings.getPrayerName(targetPrayerType, lang)
+                    val title = if (lang.code == "ar") "تنبيه اقتراب موعد صلاة $actualPrayerName" else "Prayer Reminder: $actualPrayerName"
+                    val message = if (lang.code == "ar") {
+                        "يتبقى $minutesBefore دقيقة على أذان صلاة $actualPrayerName"
+                    } else if (lang.code == "fr") {
+                        "$minutesBefore min avant la prière de $actualPrayerName"
+                    } else {
+                        "$minutesBefore minutes before $actualPrayerName prayer"
                     }
 
                     val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
-                    val targetPrayerType = try {
-                        if (alert.targetPrayer == "ALL") PrayerType.FAJR else PrayerType.valueOf(alert.targetPrayer)
-                    } catch (e: Exception) {
-                        PrayerType.FAJR
-                    }
                     val screenConfig = adhanRepo.getScreenConfig(targetPrayerType)
 
                     val openIntent = Intent(context, MainActivity::class.java).apply {
                         putExtra("TRIGGER_ADHAN_SCREEN", targetPrayerType.name)
                         putExtra("TRIGGER_SCREEN_TYPE", "ALERT")
-                        putExtra("TRIGGER_ALERT_MINUTES", alert.minutesBefore)
+                        putExtra("TRIGGER_ALERT_MINUTES", minutesBefore)
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
                                 Intent.FLAG_ACTIVITY_SINGLE_TOP or
                                 Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     }
+                    val safeHash = ((alert?.id?.hashCode() ?: 0) and 0x7FFFFFFF) % 10000
                     val pendingIntent = PendingIntent.getActivity(
                         context,
-                        alert.hashCode(),
+                        30000 + (safeHash * 10) + targetPrayerType.ordinal,
                         openIntent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
@@ -225,10 +237,10 @@ class AlarmReceiver : BroadcastReceiver() {
                         .setVibrate(longArrayOf(0, 400, 200, 400))
 
                     val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_ALERT + alert.hashCode(), builder.build())
+                    manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_ALERT + targetPrayerType.ordinal * 50 + safeHash % 50, builder.build())
 
                     // Play audio tone
-                    MediaHelper.playAudioPreview(context, alert.soundUri)
+                    MediaHelper.playAudioPreview(context, alert?.soundUri)
 
                     // Wake screen and automatically open Alert Screen
                     acquireWakeLock(context, "MosqueClock:AlertScreenWake", 60_000L)

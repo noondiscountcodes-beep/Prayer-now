@@ -191,6 +191,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         WidgetSyncHelper.syncAll(this)
+        AlarmScheduler.scheduleAll(this)
     }
 
     override fun onNewIntent(intent: Intent) {

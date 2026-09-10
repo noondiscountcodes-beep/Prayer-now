@@ -28,10 +28,10 @@ object AlarmScheduler {
         val activeAlerts = alertsRepo.getAllAlerts().filter { it.isEnabled }
         val now = System.currentTimeMillis()
 
-        // Schedule for both today and tomorrow (covers next 24-36 hours continuously)
+        // Schedule for the next 7 days continuously (ensures alarms never expire if app remains closed)
         val baseCal = Calendar.getInstance(prefs.getTimezone())
 
-        for (dayOffset in 0..1) {
+        for (dayOffset in 0..6) {
             val cal = Calendar.getInstance(prefs.getTimezone()).apply {
                 timeInMillis = baseCal.timeInMillis
                 add(Calendar.DAY_OF_YEAR, dayOffset)
@@ -163,34 +163,47 @@ object AlarmScheduler {
         triggerAtMillis: Long,
         pendingIntent: PendingIntent
     ) {
-        try {
-            // Android Alarm Clock API: The gold standard for precision, bypassing Doze mode completely
-            val showIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val showPendingIntent = PendingIntent.getActivity(
-                context,
-                (triggerAtMillis % 100000).toInt(),
-                showIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
-            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-        } catch (e: Exception) {
-            Log.w(TAG, "setAlarmClock not permitted or failed, falling back to setExactAndAllowWhileIdle: ${e.message}")
+        val showIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val safeActivityCode = ((triggerAtMillis / 1000) and 0x7FFFFFFF).mod(100000)
+        val showPendingIntent = PendingIntent.getActivity(
+            context,
+            safeActivityCode,
+            showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+
+        if (canExact) {
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (alarmManager.canScheduleExactAlarms()) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                    } else {
-                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                    }
-                } else {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                }
-            } catch (e2: Exception) {
-                Log.e(TAG, "All alarm scheduling methods failed: ${e2.message}")
+                // SetAlarmClock is the Android OS highest priority alarm level.
+                // It wakes the CPU and screen even from Doze mode and is exempt from standard OEM app-standby restrictions.
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                return
+            } catch (e: Exception) {
+                Log.w(TAG, "setAlarmClock failed: ${e.message}, trying setExactAndAllowWhileIdle")
             }
+
+            try {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                return
+            } catch (e2: Exception) {
+                Log.w(TAG, "setExactAndAllowWhileIdle failed: ${e2.message}")
+            }
+        }
+
+        // Fallback for non-exact allowed state
+        try {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        } catch (e3: Exception) {
+            Log.e(TAG, "All alarm scheduling methods failed: ${e3.message}")
         }
     }
 
@@ -219,8 +232,8 @@ object AlarmScheduler {
             putExtra(AlarmReceiver.EXTRA_ALERT_ID, alertId)
             putExtra(AlarmReceiver.EXTRA_PRAYER_NAME, targetPrayer.name)
         }
-        val rawCode = (alertId.hashCode() * 31 + targetPrayer.ordinal * 7 + dayOffset * 50)
-        val requestCode = 20000 + (if (rawCode < 0) -rawCode else rawCode) % 70000
+        val alertHash = (alertId.hashCode() and 0x7FFFFFFF) % 10000
+        val requestCode = 20000 + (alertHash * 50) + (dayOffset * 6) + targetPrayer.ordinal
         return PendingIntent.getBroadcast(
             context,
             requestCode,
