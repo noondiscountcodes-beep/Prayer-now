@@ -185,6 +185,25 @@ class AppPreferences(private val context: Context) {
         notifyChanged()
     }
 
+    // Manual Prayer Time Adjustments (Minutes Offset)
+    fun getPrayerOffset(type: PrayerType): Int {
+        return prefs.getInt("prayer_offset_${type.name.lowercase()}", 0)
+    }
+
+    fun setPrayerOffset(type: PrayerType, offsetMinutes: Int) {
+        prefs.edit().putInt("prayer_offset_${type.name.lowercase()}", offsetMinutes).apply()
+        notifyChanged()
+    }
+
+    fun resetPrayerOffsets() {
+        val editor = prefs.edit()
+        for (type in PrayerType.values()) {
+            editor.remove("prayer_offset_${type.name.lowercase()}")
+        }
+        editor.apply()
+        notifyChanged()
+    }
+
     // Persistent Notification Bar
     fun isPersistentNotificationEnabled(): Boolean = prefs.getBoolean("persistent_notif_enabled", true)
     fun setPersistentNotificationEnabled(enabled: Boolean) {

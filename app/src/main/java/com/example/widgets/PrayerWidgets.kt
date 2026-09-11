@@ -24,18 +24,11 @@ class NextPrayerWidget : AppWidgetProvider() {
         val lang = prefs.getLanguage()
         val cal = Calendar.getInstance(prefs.getTimezone())
 
-        val schedule = PrayerTimesCalculator.calculate(
+        val schedule = PrayerTimesCalculator.calculateWithPreferences(
             year = cal.get(Calendar.YEAR),
             month = cal.get(Calendar.MONTH) + 1,
             day = cal.get(Calendar.DAY_OF_MONTH),
-            latitude = prefs.getLatitude(),
-            longitude = prefs.getLongitude(),
-            timezone = prefs.getTimezone(),
-            dstSetting = prefs.getDstSetting(),
-            method = prefs.getCalculationMethod(),
-            madhab = prefs.getMadhab(),
-            customFajrAngle = prefs.getCustomFajrAngle(),
-            customIshaAngle = prefs.getCustomIshaAngle()
+            prefs = prefs
         )
 
         val now = System.currentTimeMillis()
@@ -43,6 +36,7 @@ class NextPrayerWidget : AppWidgetProvider() {
         val remainingSec = schedule.getRemainingSecondsToNext(now)
         val remainingFormatted = PrayerDaySchedule.formatRemaining(remainingSec)
         val nextName = AppStrings.getPrayerName(next.type, lang)
+        val remainingDigits = if (lang.code == "ar") PrayerBannerHelper.toArabicDigits(remainingFormatted) else remainingFormatted
 
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -52,9 +46,12 @@ class NextPrayerWidget : AppWidgetProvider() {
 
         for (id in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.widget_next_prayer)
-            views.setTextViewText(R.id.tv_next_prayer_title, AppStrings.nextPrayer(lang))
+            views.setTextViewText(R.id.tv_next_prayer_title, if (lang.code == "ar") "الصلاة القادمة" else "Next Prayer")
             views.setTextViewText(R.id.tv_next_prayer_name, nextName)
-            views.setTextViewText(R.id.tv_remaining_countdown, "${AppStrings.remaining(lang)}: $remainingFormatted")
+            views.setTextViewText(
+                R.id.tv_remaining_countdown,
+                if (lang.code == "ar") "يتبقى $remainingDigits على صلاة $nextName" else "$remainingDigits remaining until $nextName"
+            )
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
             appWidgetManager.updateAppWidget(id, views)
         }
@@ -126,18 +123,11 @@ class RamadanWidget : AppWidgetProvider() {
         val lang = prefs.getLanguage()
         val cal = Calendar.getInstance(prefs.getTimezone())
 
-        val schedule = PrayerTimesCalculator.calculate(
+        val schedule = PrayerTimesCalculator.calculateWithPreferences(
             year = cal.get(Calendar.YEAR),
             month = cal.get(Calendar.MONTH) + 1,
             day = cal.get(Calendar.DAY_OF_MONTH),
-            latitude = prefs.getLatitude(),
-            longitude = prefs.getLongitude(),
-            timezone = prefs.getTimezone(),
-            dstSetting = prefs.getDstSetting(),
-            method = prefs.getCalculationMethod(),
-            madhab = prefs.getMadhab(),
-            customFajrAngle = prefs.getCustomFajrAngle(),
-            customIshaAngle = prefs.getCustomIshaAngle()
+            prefs = prefs
         )
 
         val now = System.currentTimeMillis()

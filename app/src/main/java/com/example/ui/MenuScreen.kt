@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -620,6 +621,173 @@ private fun LocationMethodTab(prefs: AppPreferences, language: AppLanguage) {
             }
         }
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Manual Prayer Time Adjustments (Offsets)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, IslamicGoldSecondary)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (language.code == "ar") "⏱️ تعديل أوقات الصلاة يدوياً" else "⏱️ Manual Prayer Time Adjustments",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = IslamicGoldLight,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (language.code == "ar")
+                                "تقديم أو تأخير التوقيت بالدقائق للتوافق مع أذان المسجد المحلي"
+                            else
+                                "Adjust minutes (+/-) to match your local mosque exact times",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFA5BFB9)
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            prefs.resetPrayerOffsets()
+                            AlarmScheduler.scheduleAll(context)
+                            WidgetSyncHelper.syncAll(context)
+                            PrayerNotificationService.start(context)
+                            Toast.makeText(context, if (language.code == "ar") "تمت إعادة ضبط التعديلات للافتراضي" else "Offsets reset to default", Toast.LENGTH_SHORT).show()
+                        }
+                    ) {
+                        Text(
+                            text = if (language.code == "ar") "إعادة ضبط" else "Reset",
+                            color = IslamicGoldPrimary,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Calculate current times for preview
+                val todaySchedule = remember(prefs.refreshTrigger.collectAsState().value) {
+                    val cal = Calendar.getInstance(prefs.getTimezone())
+                    PrayerTimesCalculator.calculateWithPreferences(
+                        cal.get(Calendar.YEAR),
+                        cal.get(Calendar.MONTH) + 1,
+                        cal.get(Calendar.DAY_OF_MONTH),
+                        prefs
+                    )
+                }
+
+                val allPrayers = listOf(
+                    PrayerType.FAJR to todaySchedule.fajr,
+                    PrayerType.SUNRISE to todaySchedule.sunrise,
+                    PrayerType.DHUHR to todaySchedule.dhuhr,
+                    PrayerType.ASR to todaySchedule.asr,
+                    PrayerType.MAGHRIB to todaySchedule.maghrib,
+                    PrayerType.ISHA to todaySchedule.isha
+                )
+
+                allPrayers.forEach { (type, entry) ->
+                    val offset = prefs.getPrayerOffset(type)
+                    val prayerName = AppStrings.getPrayerName(type, language)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .background(
+                                color = if (offset != 0) Color(0xFF133C33) else Color(0xFF0F1E1B),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = prayerName,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (offset != 0) IslamicGoldLight else Color.White,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            val timeFormatted = if (language.code == "ar") {
+                                PrayerBannerHelper.toArabicDigits(entry.formattedTime12)
+                            } else {
+                                entry.formattedTime12
+                            }
+                            Text(
+                                text = timeFormatted,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = IslamicGoldPrimary
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // Minus button
+                            IconButton(
+                                onClick = {
+                                    prefs.setPrayerOffset(type, offset - 1)
+                                    AlarmScheduler.scheduleAll(context)
+                                    WidgetSyncHelper.syncAll(context)
+                                    PrayerNotificationService.start(context)
+                                },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(Color(0xFF1E3A34), CircleShape)
+                            ) {
+                                Text("-", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            }
+
+                            // Offset badge
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (offset != 0) IslamicGoldPrimary.copy(alpha = 0.2f) else Color.Transparent,
+                                modifier = Modifier.widthIn(min = 55.dp)
+                            ) {
+                                val offsetText = when {
+                                    offset > 0 -> "+$offset ${if (language.code == "ar") "د" else "m"}"
+                                    offset < 0 -> "$offset ${if (language.code == "ar") "د" else "m"}"
+                                    else -> if (language.code == "ar") "0 د" else "0 m"
+                                }
+                                val offsetDigits = if (language.code == "ar") PrayerBannerHelper.toArabicDigits(offsetText) else offsetText
+                                Text(
+                                    text = offsetDigits,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (offset != 0) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (offset != 0) IslamicGoldLight else Color.Gray,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            // Plus button
+                            IconButton(
+                                onClick = {
+                                    prefs.setPrayerOffset(type, offset + 1)
+                                    AlarmScheduler.scheduleAll(context)
+                                    WidgetSyncHelper.syncAll(context)
+                                    PrayerNotificationService.start(context)
+                                },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(IslamicGoldPrimary, CircleShape)
+                            ) {
+                                Text("+", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(30.dp))
     }
 
@@ -714,12 +882,15 @@ private fun AlertsTab(prefs: AppPreferences, language: AppLanguage) {
         val isIgnoringBattery = remember(alertsList) {
             powerManager.isIgnoringBatteryOptimizations(context.packageName)
         }
+        val canDrawOverlays = remember(alertsList) {
+            Settings.canDrawOverlays(context)
+        }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
             shape = RoundedCornerShape(12.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, if (!canExactAlarms || !isIgnoringBattery) Color(0xFFF59E0B) else MosqueCardBorder)
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (!canExactAlarms || !isIgnoringBattery || !canDrawOverlays) Color(0xFFF59E0B) else MosqueCardBorder)
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Row(
@@ -760,7 +931,7 @@ private fun AlertsTab(prefs: AppPreferences, language: AppLanguage) {
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
                         ) {
                             Text(
-                                text = if (language.code == "ar") "✓ المنبهات الدقيقة مفعّلة" else "✓ Exact Alarms Active",
+                                text = if (language.code == "ar") "✓ منبهات دقيقة" else "✓ Exact Alarms",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF6EE7B7),
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -781,7 +952,7 @@ private fun AlertsTab(prefs: AppPreferences, language: AppLanguage) {
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = if (language.code == "ar") "⚠️ تفعيل المنبهات الدقيقة" else "⚠️ Enable Exact Alarms",
+                                text = if (language.code == "ar") "⚠️ تفعيل المنبهات" else "⚠️ Exact Alarms",
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -795,7 +966,7 @@ private fun AlertsTab(prefs: AppPreferences, language: AppLanguage) {
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
                         ) {
                             Text(
-                                text = if (language.code == "ar") "✓ مستثنى من توفير البطارية" else "✓ Unrestricted Battery",
+                                text = if (language.code == "ar") "✓ بدون قيود بطارية" else "✓ Unrestricted",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF6EE7B7),
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -818,7 +989,48 @@ private fun AlertsTab(prefs: AppPreferences, language: AppLanguage) {
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = if (language.code == "ar") "استثناء من توفير البطارية" else "Exempt from Battery Saver",
+                                text = if (language.code == "ar") "استثناء البطارية" else "Exempt Battery",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Overlay Permission Chip / Button (إذن الظهور فوق التطبيقات الأخرى)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (canDrawOverlays) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF065F46).copy(alpha = 0.5f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
+                        ) {
+                            Text(
+                                text = if (language.code == "ar") "✓ إذن الظهور فوق التطبيقات مفعّل" else "✓ Overlay Permission Granted",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF6EE7B7),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+                                } catch (e: Exception) {
+                                    context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB), contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (language.code == "ar") "⚠️ منح إذن الظهور فوق التطبيقات الأخرى" else "⚠️ Grant Overlay Permission",
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -2035,6 +2247,83 @@ private fun SettingsSecurityTab(prefs: AppPreferences, language: AppLanguage) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(if (language.code == "ar") "فتح إعدادات البطارية للنظام" else "Open Battery Settings")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Overlay / Draw Over Apps Permission Card
+        val canDrawOverlays = Settings.canDrawOverlays(context)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (!canDrawOverlays) Color(0xFF3B82F6) else MosqueCardBorder)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (language.code == "ar") "📲 إذن الظهور فوق التطبيقات الأخرى" else "📲 Draw Over Other Apps Permission",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (canDrawOverlays) Color(0xFF065F46).copy(alpha = 0.5f) else Color(0xFF7F1D1D).copy(alpha = 0.5f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (canDrawOverlays) Color(0xFF10B981) else Color(0xFFEF4444))
+                    ) {
+                        Text(
+                            text = if (canDrawOverlays) {
+                                if (language.code == "ar") "مفعّل" else "Granted"
+                            } else {
+                                if (language.code == "ar") "مطلوب" else "Required"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (canDrawOverlays) Color(0xFF6EE7B7) else Color(0xFFFCA5A5),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = if (language.code == "ar")
+                        "يتيح للتطبيق فتح شاشة الأذان وشاشات التنبيهات المخصصة ملء الشاشة تلقائياً حتى وإن كان الهاتف قيد الاستخدام في تطبيق آخر كاليوتيوب أو الواتساب أو المتصفح."
+                    else
+                        "Allows the app to automatically display the full-screen Adhan and prayer reminder views even while you are actively using other applications.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFA5BFB9)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+                        } catch (e: Exception) {
+                            context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (canDrawOverlays) Color(0xFF065F46) else Color(0xFF2563EB),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(
+                        if (canDrawOverlays) {
+                            if (language.code == "ar") "إدارة إذن الظهور فوق التطبيقات" else "Manage Overlay Permission"
+                        } else {
+                            if (language.code == "ar") "منح إذن الظهور فوق التطبيقات الآن" else "Grant Overlay Permission Now"
+                        }
+                    )
                 }
             }
         }

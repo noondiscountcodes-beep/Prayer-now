@@ -65,34 +65,37 @@ object PrayerBannerHelper {
         val tz = prefs.getTimezone()
         val cal = Calendar.getInstance(tz)
 
-        val schedule = PrayerTimesCalculator.calculate(
+        val schedule = PrayerTimesCalculator.calculateWithPreferences(
             year = cal.get(Calendar.YEAR),
             month = cal.get(Calendar.MONTH) + 1,
             day = cal.get(Calendar.DAY_OF_MONTH),
-            latitude = prefs.getLatitude(),
-            longitude = prefs.getLongitude(),
-            timezone = tz,
-            dstSetting = prefs.getDstSetting(),
-            method = prefs.getCalculationMethod(),
-            madhab = prefs.getMadhab(),
-            customFajrAngle = prefs.getCustomFajrAngle(),
-            customIshaAngle = prefs.getCustomIshaAngle()
+            prefs = prefs
         )
 
         val now = System.currentTimeMillis()
         val currentType = schedule.getCurrentPrayer(now)
-        val currentEntry = schedule.getEntry(currentType)
         val nextPrayer = schedule.getNextPrayer(now)
         val nextType = nextPrayer.type
+        val nextPrayerName = AppStrings.getPrayerName(nextType, lang)
 
         // City & Header
         val cityName = prefs.getCityName()
         views.setTextViewText(R.id.tv_city_name, cityName)
 
-        // Hero Banner
-        val heroPrayerName = AppStrings.getPrayerName(currentType, lang)
-        val heroDiff = calculateDiffString(now, currentEntry.timestampMillis, isArabic)
-        views.setTextViewText(R.id.tv_hero_prayer, heroPrayerName)
+        // Hero Banner - user requested: after Fajr say remaining until Dhuhr, and likewise after each prayer
+        val remainingSec = schedule.getRemainingSecondsToNext(now)
+        val hours = remainingSec / 3600
+        val mins = (remainingSec % 3600) / 60
+        val secs = remainingSec % 60
+        val timeStr = if (hours > 0) {
+            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.US, "%02d:%02d", mins, secs)
+        }
+        val timeDigits = if (isArabic) toArabicDigits(timeStr) else timeStr
+        val heroDiff = if (isArabic) "يتبقى $timeDigits على $nextPrayerName" else "$timeDigits until $nextPrayerName"
+
+        views.setTextViewText(R.id.tv_hero_prayer, nextPrayerName)
         views.setTextViewText(R.id.tv_hero_diff, heroDiff)
 
         // 5 Prayers setup
@@ -176,31 +179,35 @@ object PrayerBannerHelper {
         val tz = prefs.getTimezone()
         val cal = Calendar.getInstance(tz)
 
-        val schedule = PrayerTimesCalculator.calculate(
+        val schedule = PrayerTimesCalculator.calculateWithPreferences(
             year = cal.get(Calendar.YEAR),
             month = cal.get(Calendar.MONTH) + 1,
             day = cal.get(Calendar.DAY_OF_MONTH),
-            latitude = prefs.getLatitude(),
-            longitude = prefs.getLongitude(),
-            timezone = tz,
-            dstSetting = prefs.getDstSetting(),
-            method = prefs.getCalculationMethod(),
-            madhab = prefs.getMadhab(),
-            customFajrAngle = prefs.getCustomFajrAngle(),
-            customIshaAngle = prefs.getCustomIshaAngle()
+            prefs = prefs
         )
 
         val now = System.currentTimeMillis()
         val currentType = schedule.getCurrentPrayer(now)
-        val currentEntry = schedule.getEntry(currentType)
         val nextPrayer = schedule.getNextPrayer(now)
         val nextType = nextPrayer.type
+        val nextPrayerName = AppStrings.getPrayerName(nextType, lang)
 
         views.setTextViewText(R.id.notif_city_name, prefs.getCityName())
 
-        val heroPrayerName = AppStrings.getPrayerName(currentType, lang)
-        val heroDiff = calculateDiffString(now, currentEntry.timestampMillis, isArabic)
-        views.setTextViewText(R.id.notif_hero_prayer, heroPrayerName)
+        // Hero Banner - Next prayer countdown (e.g. after Fajr: remaining until Dhuhr)
+        val remainingSec = schedule.getRemainingSecondsToNext(now)
+        val hours = remainingSec / 3600
+        val mins = (remainingSec % 3600) / 60
+        val secs = remainingSec % 60
+        val timeStr = if (hours > 0) {
+            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.US, "%02d:%02d", mins, secs)
+        }
+        val timeDigits = if (isArabic) toArabicDigits(timeStr) else timeStr
+        val heroDiff = if (isArabic) "يتبقى $timeDigits على $nextPrayerName" else "$timeDigits until $nextPrayerName"
+
+        views.setTextViewText(R.id.notif_hero_prayer, nextPrayerName)
         views.setTextViewText(R.id.notif_hero_diff, heroDiff)
 
         data class ColNotifIds(
@@ -225,14 +232,14 @@ object PrayerBannerHelper {
             views.setTextViewText(col.timeId, formatTime12h(col.timeMillis, tz, isArabic))
 
             if (col.prayerType == currentType) {
-                views.setTextViewText(col.badgeId, if (isArabic) "الان" else "Now")
+                views.setTextViewText(col.badgeId, if (isArabic) "الحالية" else "Current")
                 views.setInt(col.badgeId, "setBackgroundResource", R.drawable.bg_badge_cyan)
                 views.setViewVisibility(col.badgeId, View.VISIBLE)
                 views.setInt(col.colId, "setBackgroundResource", R.drawable.bg_prayer_col_active)
                 views.setTextColor(col.nameId, Color.WHITE)
                 views.setTextColor(col.timeId, Color.WHITE)
             } else if (col.prayerType == nextType) {
-                views.setTextViewText(col.badgeId, if (isArabic) "لاحقا" else "Next")
+                views.setTextViewText(col.badgeId, if (isArabic) "القادمة" else "Next")
                 views.setInt(col.badgeId, "setBackgroundResource", R.drawable.bg_badge_cyan)
                 views.setViewVisibility(col.badgeId, View.VISIBLE)
                 views.setInt(col.colId, "setBackgroundResource", R.drawable.bg_prayer_col_inactive)
@@ -280,27 +287,31 @@ object PrayerBannerHelper {
         val tz = prefs.getTimezone()
         val cal = Calendar.getInstance(tz)
 
-        val schedule = PrayerTimesCalculator.calculate(
+        val schedule = PrayerTimesCalculator.calculateWithPreferences(
             year = cal.get(Calendar.YEAR),
             month = cal.get(Calendar.MONTH) + 1,
             day = cal.get(Calendar.DAY_OF_MONTH),
-            latitude = prefs.getLatitude(),
-            longitude = prefs.getLongitude(),
-            timezone = tz,
-            dstSetting = prefs.getDstSetting(),
-            method = prefs.getCalculationMethod(),
-            madhab = prefs.getMadhab(),
-            customFajrAngle = prefs.getCustomFajrAngle(),
-            customIshaAngle = prefs.getCustomIshaAngle()
+            prefs = prefs
         )
 
         val now = System.currentTimeMillis()
-        val currentType = schedule.getCurrentPrayer(now)
-        val currentEntry = schedule.getEntry(currentType)
-        val heroPrayerName = AppStrings.getPrayerName(currentType, lang)
-        val heroDiff = calculateDiffString(now, currentEntry.timestampMillis, isArabic)
+        val nextPrayer = schedule.getNextPrayer(now)
+        val nextType = nextPrayer.type
+        val nextPrayerName = AppStrings.getPrayerName(nextType, lang)
 
-        views.setTextViewText(R.id.notif_collapsed_prayer, heroPrayerName)
+        val remainingSec = schedule.getRemainingSecondsToNext(now)
+        val hours = remainingSec / 3600
+        val mins = (remainingSec % 3600) / 60
+        val secs = remainingSec % 60
+        val timeStr = if (hours > 0) {
+            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.US, "%02d:%02d", mins, secs)
+        }
+        val timeDigits = if (isArabic) toArabicDigits(timeStr) else timeStr
+        val heroDiff = if (isArabic) "يتبقى $timeDigits على $nextPrayerName" else "$timeDigits until $nextPrayerName"
+
+        views.setTextViewText(R.id.notif_collapsed_prayer, nextPrayerName)
         views.setTextViewText(R.id.notif_collapsed_diff, heroDiff)
         views.setTextViewText(R.id.notif_collapsed_city, prefs.getCityName())
     }

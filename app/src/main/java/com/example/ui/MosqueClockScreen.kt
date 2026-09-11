@@ -67,18 +67,11 @@ fun MosqueClockScreen(
 
     // Prayer Schedule for today
     val schedule = remember(calendar.get(Calendar.DAY_OF_YEAR), refreshTrigger) {
-        PrayerTimesCalculator.calculate(
+        PrayerTimesCalculator.calculateWithPreferences(
             year = calendar.get(Calendar.YEAR),
             month = calendar.get(Calendar.MONTH) + 1,
             day = calendar.get(Calendar.DAY_OF_MONTH),
-            latitude = prefs.getLatitude(),
-            longitude = prefs.getLongitude(),
-            timezone = timezone,
-            dstSetting = prefs.getDstSetting(),
-            method = prefs.getCalculationMethod(),
-            madhab = prefs.getMadhab(),
-            customFajrAngle = prefs.getCustomFajrAngle(),
-            customIshaAngle = prefs.getCustomIshaAngle()
+            prefs = prefs
         )
     }
 

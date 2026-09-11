@@ -37,18 +37,11 @@ object AlarmScheduler {
                 add(Calendar.DAY_OF_YEAR, dayOffset)
             }
 
-            val daySchedule = PrayerTimesCalculator.calculate(
+            val daySchedule = PrayerTimesCalculator.calculateWithPreferences(
                 year = cal.get(Calendar.YEAR),
                 month = cal.get(Calendar.MONTH) + 1,
                 day = cal.get(Calendar.DAY_OF_MONTH),
-                latitude = prefs.getLatitude(),
-                longitude = prefs.getLongitude(),
-                timezone = prefs.getTimezone(),
-                dstSetting = prefs.getDstSetting(),
-                method = prefs.getCalculationMethod(),
-                madhab = prefs.getMadhab(),
-                customFajrAngle = prefs.getCustomFajrAngle(),
-                customIshaAngle = prefs.getCustomIshaAngle()
+                prefs = prefs
             )
 
             // 1. Schedule all upcoming Adhans for this day

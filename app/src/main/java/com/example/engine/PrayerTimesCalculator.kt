@@ -92,7 +92,13 @@ object PrayerTimesCalculator {
         madhab: Madhab = Madhab.SHAFI,
         customFajrAngle: Double = 18.0,
         customIshaAngle: Double = 17.0,
-        customIshaIntervalMinutes: Int? = null
+        customIshaIntervalMinutes: Int? = null,
+        fajrOffsetMinutes: Int = 0,
+        sunriseOffsetMinutes: Int = 0,
+        dhuhrOffsetMinutes: Int = 0,
+        asrOffsetMinutes: Int = 0,
+        maghribOffsetMinutes: Int = 0,
+        ishaOffsetMinutes: Int = 0
     ): PrayerDaySchedule {
         val cal = Calendar.getInstance(timezone)
         cal.set(Calendar.YEAR, year)
@@ -158,11 +164,12 @@ object PrayerTimesCalculator {
             fixHour(noon + ishaDiff)
         }
 
-        fun toTimeEntry(type: PrayerType, hourFraction: Double): PrayerTimeEntry {
-            val totalMinutes = (hourFraction * 60.0).roundToInt()
-            var h = (totalMinutes / 60) % 24
+        fun toTimeEntry(type: PrayerType, hourFraction: Double, offsetMinutes: Int = 0): PrayerTimeEntry {
+            var totalMinutes = (hourFraction * 60.0).roundToInt() + offsetMinutes
+            val minutesInDay = 24 * 60
+            totalMinutes = ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay
+            val h = totalMinutes / 60
             val m = totalMinutes % 60
-            if (h < 0) h += 24
 
             val entryCal = Calendar.getInstance(timezone)
             entryCal.set(Calendar.YEAR, year)
@@ -185,12 +192,39 @@ object PrayerTimesCalculator {
             dateYear = year,
             dateMonth = month,
             dateDay = day,
-            fajr = toTimeEntry(PrayerType.FAJR, fajrHour),
-            sunrise = toTimeEntry(PrayerType.SUNRISE, sunriseHour),
-            dhuhr = toTimeEntry(PrayerType.DHUHR, dhuhrHour),
-            asr = toTimeEntry(PrayerType.ASR, asrHour),
-            maghrib = toTimeEntry(PrayerType.MAGHRIB, maghribHour),
-            isha = toTimeEntry(PrayerType.ISHA, ishaHour)
+            fajr = toTimeEntry(PrayerType.FAJR, fajrHour, fajrOffsetMinutes),
+            sunrise = toTimeEntry(PrayerType.SUNRISE, sunriseHour, sunriseOffsetMinutes),
+            dhuhr = toTimeEntry(PrayerType.DHUHR, dhuhrHour, dhuhrOffsetMinutes),
+            asr = toTimeEntry(PrayerType.ASR, asrHour, asrOffsetMinutes),
+            maghrib = toTimeEntry(PrayerType.MAGHRIB, maghribHour, maghribOffsetMinutes),
+            isha = toTimeEntry(PrayerType.ISHA, ishaHour, ishaOffsetMinutes)
+        )
+    }
+
+    fun calculateWithPreferences(
+        year: Int,
+        month: Int,
+        day: Int,
+        prefs: com.example.data.AppPreferences
+    ): PrayerDaySchedule {
+        return calculate(
+            year = year,
+            month = month,
+            day = day,
+            latitude = prefs.getLatitude(),
+            longitude = prefs.getLongitude(),
+            timezone = prefs.getTimezone(),
+            dstSetting = prefs.getDstSetting(),
+            method = prefs.getCalculationMethod(),
+            madhab = prefs.getMadhab(),
+            customFajrAngle = prefs.getCustomFajrAngle(),
+            customIshaAngle = prefs.getCustomIshaAngle(),
+            fajrOffsetMinutes = prefs.getPrayerOffset(PrayerType.FAJR),
+            sunriseOffsetMinutes = prefs.getPrayerOffset(PrayerType.SUNRISE),
+            dhuhrOffsetMinutes = prefs.getPrayerOffset(PrayerType.DHUHR),
+            asrOffsetMinutes = prefs.getPrayerOffset(PrayerType.ASR),
+            maghribOffsetMinutes = prefs.getPrayerOffset(PrayerType.MAGHRIB),
+            ishaOffsetMinutes = prefs.getPrayerOffset(PrayerType.ISHA)
         )
     }
 }
