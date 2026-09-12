@@ -155,10 +155,10 @@ class AdhanPreferencesRepository(context: Context) {
         val showRemaining = prefs.getBoolean("screen_${p}_show_remaining", true)
         val selectedImagesStr = prefs.getString("screen_${p}_images", "") ?: ""
         val selectedImages = if (selectedImagesStr.isBlank()) emptyList() else selectedImagesStr.split("|")
-        val autoAdhan = prefs.getBoolean("screen_${p}_auto_adhan", true)
-        val autoSuhoor = prefs.getBoolean("screen_${p}_auto_suhoor", true)
-        val autoAlerts = prefs.getBoolean("screen_${p}_auto_alerts", true)
-        val autoIftarCannon = prefs.getBoolean("screen_${p}_auto_iftar_cannon", true)
+        val autoAdhan = prefs.getBoolean("screen_${p}_auto_adhan", false)
+        val autoSuhoor = prefs.getBoolean("screen_${p}_auto_suhoor", false)
+        val autoAlerts = prefs.getBoolean("screen_${p}_auto_alerts", false)
+        val autoIftarCannon = prefs.getBoolean("screen_${p}_auto_iftar_cannon", false)
 
         return AdhanScreenConfig(
             displayMode = mode,

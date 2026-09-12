@@ -115,6 +115,10 @@ fun DuaVideoDialog(
                                     }
                                     start()
                                 }
+                                setOnCompletionListener {
+                                    // Auto dismiss when Dua video completes
+                                    onDismiss()
+                                }
                                 setOnErrorListener { _, _, _ ->
                                     hasError = true
                                     true

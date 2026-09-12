@@ -51,15 +51,13 @@ class MainActivity : ComponentActivity() {
     private val initialMenuTabState = mutableStateOf(MenuTab.LANGUAGE)
     private val screenState = mutableStateOf(ScreenState.MOSQUE_CLOCK)
 
-    private fun wakeScreenAndShowOverLockscreen() {
+    private fun clearScreenLockFlags() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-            val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-            km?.requestDismissKeyguard(this, null)
+            setShowWhenLocked(false)
+            setTurnScreenOn(false)
         } else {
             @Suppress("DEPRECATION")
-            window.addFlags(
+            window.clearFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                 WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
@@ -74,8 +72,7 @@ class MainActivity : ComponentActivity() {
 
         prefs = AppPreferences(this)
         PrayerNotificationHelper.createNotificationChannels(this)
-
-        wakeScreenAndShowOverLockscreen()
+        clearScreenLockFlags()
 
         // Schedule alarms & start persistent notification bar
         AlarmScheduler.scheduleAll(this)
@@ -176,8 +173,6 @@ class MainActivity : ComponentActivity() {
                                             pendingVideoPrayerState.value = prayerStr
                                         }
                                         screenState.value = ScreenState.MOSQUE_CLOCK
-                                        wakeScreenAndShowOverLockscreen()
-                                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                                     }
                                 )
                             }
@@ -214,16 +209,12 @@ class MainActivity : ComponentActivity() {
             pendingAdhanScreenPrayer.value = adhanScreen
             pendingAdhanScreenType.value = screenType
             pendingAlertMinutes.value = alertMin
-            wakeScreenAndShowOverLockscreen()
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
 
         if (prayerVideo != null) {
             pendingAdhanScreenPrayer.value = null
             pendingVideoPrayerState.value = prayerVideo
             screenState.value = ScreenState.MOSQUE_CLOCK
-            wakeScreenAndShowOverLockscreen()
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         if (musaharati) {
             pendingMusaharatiState.value = true

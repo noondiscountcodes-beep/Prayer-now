@@ -129,7 +129,8 @@ fun VideoPlayerDialog(
                                 start()
                             }
                             setOnCompletionListener {
-                                // Auto dismiss or stay on final frame
+                                // Auto dismiss when video playback completes
+                                onDismiss()
                             }
                             setOnClickListener {
                                 showControls = !showControls

@@ -121,7 +121,7 @@ fun AdhanFullScreenView(
         }
     }
 
-    // Auto-launch Dua video when Adhan sequence completes
+    // Auto-launch Dua video when Adhan sequence completes, or auto-dismiss if no video is set
     LaunchedEffect(playbackState.stage) {
         if (playbackState.stage == AdhanPlaybackStage.FINISHED) {
             val fallbackUri = com.example.engine.PrayerType.entries.map { repo.getDuaConfig(it) }
@@ -136,8 +136,23 @@ fun AdhanFullScreenView(
             if (!targetUri.isNullOrBlank()) {
                 delay(400)
                 onOpenDuaVideo?.invoke(targetUri)
+            } else {
+                // Adhan finished and no Dua video to play: gracefully auto-dismiss after 10 seconds so the screen doesn't stay stuck forever
+                delay(10_000L)
+                onDismiss()
             }
         }
+    }
+
+    // Safety timeout for alerts / adhan screens: if left unattended, dismiss after 3 minutes to avoid freezing phone / draining battery
+    LaunchedEffect(triggerType) {
+        val maxDurationMs = when (triggerType) {
+            "ALERT" -> 60_000L // 1 minute max for pre-prayer alert
+            "SUHOOR" -> 120_000L // 2 minutes max for suhoor alert
+            else -> 180_000L // 3 minutes max for adhan screen
+        }
+        delay(maxDurationMs)
+        onDismiss()
     }
 
     val cal = Calendar.getInstance(prefs.getTimezone()).apply {

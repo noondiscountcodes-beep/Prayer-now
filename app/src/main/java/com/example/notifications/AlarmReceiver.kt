@@ -21,28 +21,16 @@ import com.example.widgets.WidgetSyncHelper
 
 class AlarmReceiver : BroadcastReceiver() {
 
-    private fun acquireWakeLock(context: Context, tag: String, timeoutMs: Long = 60_000L) {
+    private fun acquireWakeLock(context: Context, tag: String, timeoutMs: Long = 15_000L) {
         try {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-            @Suppress("DEPRECATION")
             val wakeLock = powerManager?.newWakeLock(
-                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
-                PowerManager.ACQUIRE_CAUSES_WAKEUP or
-                PowerManager.ON_AFTER_RELEASE,
+                PowerManager.PARTIAL_WAKE_LOCK,
                 tag
             )
             wakeLock?.acquire(timeoutMs)
         } catch (e: Exception) {
-            try {
-                val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-                val wakeLock = powerManager?.newWakeLock(
-                    PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                    tag
-                )
-                wakeLock?.acquire(timeoutMs)
-            } catch (e2: Exception) {
-                Log.e("AlarmReceiver", "Failed to acquire wake lock", e2)
-            }
+            Log.e("AlarmReceiver", "Failed to acquire wake lock", e)
         }
     }
 
@@ -103,15 +91,17 @@ class AlarmReceiver : BroadcastReceiver() {
                 val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_ADHAN + prayerType.ordinal, builder.build())
 
-                // Wake screen and automatically open Adhan screen
-                acquireWakeLock(context, "MosqueClock:AdhanScreenWake", 90_000L)
-                try {
-                    context.startActivity(openIntent)
-                } catch (e: Exception) {
+                // Respect user preference: Only auto-open if explicitly configured by the user
+                if (screenConfig.autoOpenOnAdhan) {
+                    acquireWakeLock(context, "MosqueClock:AdhanScreenWake", 15_000L)
                     try {
-                        pendingIntent.send()
-                    } catch (e2: Exception) {
-                        Log.e("AlarmReceiver", "Failed to auto-launch Adhan screen activity", e2)
+                        context.startActivity(openIntent)
+                    } catch (e: Exception) {
+                        try {
+                            pendingIntent.send()
+                        } catch (e2: Exception) {
+                            Log.e("AlarmReceiver", "Failed to auto-launch Adhan screen activity", e2)
+                        }
                     }
                 }
 
@@ -120,7 +110,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     context = context,
                     prayer = prayerType,
                     onAdhanFinished = {
-                        // After Adhan completes: immediately launch Du'aa video directly!
+                        // After Adhan completes: provide Du'aa video notification / option
                         val fallbackDuaUri = com.example.engine.PrayerType.entries.map { adhanRepo.getDuaConfig(it) }
                             .firstOrNull { it.isEnabled && !it.uriString.isNullOrBlank() }?.uriString
 
@@ -142,14 +132,17 @@ class AlarmReceiver : BroadcastReceiver() {
                                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                             )
 
-                            acquireWakeLock(context, "MosqueClock:DuaVideoWake", 60_000L)
-                            try {
-                                context.startActivity(duaIntent)
-                            } catch (e: Exception) {
+                            // Only auto-launch if user previously enabled auto open for adhan/screen
+                            if (screenConfig.autoOpenOnAdhan) {
+                                acquireWakeLock(context, "MosqueClock:DuaVideoWake", 15_000L)
                                 try {
-                                    duaPendingIntent.send()
-                                } catch (e2: Exception) {
-                                    Log.e("AlarmReceiver", "Failed to launch Dua video intent", e2)
+                                    context.startActivity(duaIntent)
+                                } catch (e: Exception) {
+                                    try {
+                                        duaPendingIntent.send()
+                                    } catch (e2: Exception) {
+                                        Log.e("AlarmReceiver", "Failed to launch Dua video intent", e2)
+                                    }
                                 }
                             }
 
@@ -242,15 +235,17 @@ class AlarmReceiver : BroadcastReceiver() {
                     // Play audio tone
                     MediaHelper.playAudioPreview(context, alert?.soundUri)
 
-                    // Wake screen and automatically open Alert Screen
-                    acquireWakeLock(context, "MosqueClock:AlertScreenWake", 60_000L)
-                    try {
-                        context.startActivity(openIntent)
-                    } catch (e: Exception) {
+                    // Only auto-open if explicitly configured by the user
+                    if (screenConfig.autoOpenOnAlerts) {
+                        acquireWakeLock(context, "MosqueClock:AlertScreenWake", 15_000L)
                         try {
-                            pendingIntent.send()
-                        } catch (e2: Exception) {
-                            Log.e("AlarmReceiver", "Failed to auto-launch Alert screen activity", e2)
+                            context.startActivity(openIntent)
+                        } catch (e: Exception) {
+                            try {
+                                pendingIntent.send()
+                            } catch (e2: Exception) {
+                                Log.e("AlarmReceiver", "Failed to auto-launch Alert screen activity", e2)
+                            }
                         }
                     }
                 }
@@ -307,9 +302,9 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 MediaHelper.playAudioPreview(context, config.uriString)
 
-                // Wake screen and automatically open Suhoor Screen
-                acquireWakeLock(context, "MosqueClock:SuhoorScreenWake")
+                // Wake screen and automatically open Suhoor Screen only if configured
                 if (screenConfig.autoOpenOnSuhoor) {
+                    acquireWakeLock(context, "MosqueClock:SuhoorScreenWake", 15_000L)
                     try {
                         context.startActivity(openIntent)
                     } catch (e: Exception) {
@@ -369,9 +364,9 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 MediaHelper.playAudioPreview(context, config.uriString)
 
-                // Wake screen and automatically open Iftar Cannon Screen
-                acquireWakeLock(context, "MosqueClock:IftarCannonScreenWake")
+                // Wake screen and automatically open Iftar Cannon Screen only if configured
                 if (screenConfig.autoOpenOnIftarCannon) {
+                    acquireWakeLock(context, "MosqueClock:IftarCannonScreenWake", 15_000L)
                     try {
                         context.startActivity(openIntent)
                     } catch (e: Exception) {

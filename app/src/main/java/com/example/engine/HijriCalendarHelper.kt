@@ -130,6 +130,26 @@ object HijriCalendarHelper {
     }
 
     fun fromGregorian(year: Int, month: Int, day: Int, dayAdjustment: Int = 0): HijriDate {
+        // Try standard java.time.chrono.HijrahChronology (Umm al-Qura calendar, default on Android 8.0+ / API 26+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val localDate = java.time.LocalDate.of(year, month, day).plusDays(dayAdjustment.toLong())
+                val hijrahDate = java.time.chrono.HijrahChronology.INSTANCE.date(localDate)
+                val hYear = hijrahDate.get(java.time.temporal.ChronoField.YEAR)
+                val hMonth = hijrahDate.get(java.time.temporal.ChronoField.MONTH_OF_YEAR)
+                val hDay = hijrahDate.get(java.time.temporal.ChronoField.DAY_OF_MONTH)
+                return HijriDate(
+                    day = hDay,
+                    month = hMonth,
+                    year = hYear,
+                    isRamadan = (hMonth == 9)
+                )
+            } catch (e: Exception) {
+                // Fallback to tabular astronomical algorithm if java.time fails
+            }
+        }
+
+        // Tabular Islamic Calendar Algorithm (accurate 30-year cycle fallback)
         var y = year
         var m = month
         if (m <= 2) {
@@ -138,31 +158,43 @@ object HijriCalendarHelper {
         }
         val a = floor(y / 100.0)
         val b = 2 - a + floor(a / 4.0)
-        var jd = floor(365.25 * (y + 4716)) + floor(30.6001 * (m + 1)) + day + b - 1524.5 + dayAdjustment
+        val jd = floor(365.25 * (y + 4716)) + floor(30.6001 * (m + 1)) + day + b - 1524.0 + dayAdjustment
 
-        jd = floor(jd) + 0.5
-        var z = jd - 1948440 + 10632
-        val n = floor((z - 1) / 10631.0)
-        z = z - 10631.0 * n + 354.0
+        // Days since Islamic epoch (July 16, 622 CE = JD 1948439.5)
+        val daysSinceEpoch = (jd - 1948440.0 + 1.0).toLong()
+        val cycle = floor((daysSinceEpoch - 1.0) / 10631.0).toLong()
+        var dayInCycle = ((daysSinceEpoch - 1) % 10631).toInt()
+        if (dayInCycle < 0) dayInCycle += 10631
 
-        val j = floor((10985.0 - z) / 5316.0) * floor((50.0 * z) / 17719.0) +
-                floor(z / 5670.0) * floor((43.0 * z) / 15238.0)
-        z = z - floor((30.0 - j) / 15.0) * floor((17719.0 * j) / 50.0) -
-                floor(j / 16.0) * floor((15238.0 * j) / 43.0) + 29.0
+        val leapYears = setOf(2, 5, 7, 10, 13, 16, 18, 21, 24, 26, 29)
+        var yearInCycle = 1
+        var remDays = dayInCycle
+        while (yearInCycle <= 30) {
+            val yearLen = if (leapYears.contains(yearInCycle)) 355 else 354
+            if (remDays < yearLen) break
+            remDays -= yearLen
+            yearInCycle++
+        }
 
-        val hm = floor((24.0 * z) / 709.0)
-        val hd = z - floor((709.0 * hm) / 24.0)
-        val hy = 30.0 * n + j - 30.0
-
-        val finalDay = hd.toInt().coerceIn(1, 30)
-        val finalMonth = (hm.toInt() + 1).coerceIn(1, 12)
-        val finalYear = hy.toInt()
+        val hYear = (cycle * 30 + yearInCycle).toInt()
+        var hMonth = 1
+        while (hMonth <= 12) {
+            val monthLen = when {
+                hMonth % 2 == 1 -> 30
+                hMonth == 12 && leapYears.contains(yearInCycle) -> 30
+                else -> 29
+            }
+            if (remDays < monthLen) break
+            remDays -= monthLen
+            hMonth++
+        }
+        val hDay = (remDays + 1).coerceIn(1, 30)
 
         return HijriDate(
-            day = finalDay,
-            month = finalMonth,
-            year = finalYear,
-            isRamadan = (finalMonth == 9)
+            day = hDay,
+            month = hMonth.coerceIn(1, 12),
+            year = hYear,
+            isRamadan = (hMonth == 9)
         )
     }
 }
