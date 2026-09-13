@@ -1450,7 +1450,7 @@ private fun SectionAdhanScreen(
                 )
 
                 ScreenElementToggleRow(
-                    title = if (language.code == "ar") "تشغيل الشاشة تلقائياً عند حلول الأذان" else "Auto launch on Adhan",
+                    title = if (language.code == "ar") "عرض شاشة الأذان على شاشة القفل تلقائياً" else "Display on lock screen at Adhan",
                     checked = screenConfig.autoOpenOnAdhan,
                     onCheckedChange = {
                         screenConfig = screenConfig.copy(autoOpenOnAdhan = it)
@@ -1459,7 +1459,7 @@ private fun SectionAdhanScreen(
                 )
 
                 ScreenElementToggleRow(
-                    title = if (language.code == "ar") "تشغيل الشاشة تلقائياً عند موعد السحور" else "Auto launch on Suhoor",
+                    title = if (language.code == "ar") "عرض شاشة السحور على شاشة القفل تلقائياً" else "Display on lock screen at Suhoor",
                     checked = screenConfig.autoOpenOnSuhoor,
                     onCheckedChange = {
                         screenConfig = screenConfig.copy(autoOpenOnSuhoor = it)
@@ -1468,7 +1468,7 @@ private fun SectionAdhanScreen(
                 )
 
                 ScreenElementToggleRow(
-                    title = if (language.code == "ar") "تشغيل الشاشة تلقائياً عند التنبيهات المسبقة" else "Auto launch on Alerts",
+                    title = if (language.code == "ar") "عرض شاشة التنبيهات على شاشة القفل تلقائياً" else "Display on lock screen at Alerts",
                     checked = screenConfig.autoOpenOnAlerts,
                     onCheckedChange = {
                         screenConfig = screenConfig.copy(autoOpenOnAlerts = it)

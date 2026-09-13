@@ -50,14 +50,11 @@ class AlarmReceiver : BroadcastReceiver() {
                 val duaConfig = adhanRepo.getDuaConfig(prayerType)
                 val screenConfig = adhanRepo.getScreenConfig(prayerType)
 
-                val openIntent = Intent(context, MainActivity::class.java).apply {
-                    putExtra("TRIGGER_ADHAN_SCREEN", prayerType.name)
-                    putExtra("TRIGGER_SCREEN_TYPE", "ADHAN")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                }
+                val openIntent = com.example.ui.LockScreenAdhanActivity.createIntent(
+                    context = context,
+                    prayer = prayerType,
+                    triggerType = "ADHAN"
+                )
                 val pendingIntent = PendingIntent.getActivity(
                     context,
                     prayerType.ordinal,
@@ -121,10 +118,12 @@ class AlarmReceiver : BroadcastReceiver() {
                         }
 
                         if (!targetDuaUri.isNullOrBlank()) {
-                            val duaIntent = Intent(context, MainActivity::class.java).apply {
-                                putExtra("TRIGGER_ADHAN_VIDEO", prayerType.name)
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                            }
+                            val duaIntent = com.example.ui.LockScreenAdhanActivity.createIntent(
+                                context = context,
+                                prayer = prayerType,
+                                triggerType = "ADHAN",
+                                videoUri = targetDuaUri
+                            )
                             val duaPendingIntent = PendingIntent.getActivity(
                                 context,
                                 5000 + prayerType.ordinal,
@@ -201,15 +200,12 @@ class AlarmReceiver : BroadcastReceiver() {
                     val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
                     val screenConfig = adhanRepo.getScreenConfig(targetPrayerType)
 
-                    val openIntent = Intent(context, MainActivity::class.java).apply {
-                        putExtra("TRIGGER_ADHAN_SCREEN", targetPrayerType.name)
-                        putExtra("TRIGGER_SCREEN_TYPE", "ALERT")
-                        putExtra("TRIGGER_ALERT_MINUTES", minutesBefore)
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    }
+                    val openIntent = com.example.ui.LockScreenAdhanActivity.createIntent(
+                        context = context,
+                        prayer = targetPrayerType,
+                        triggerType = "ALERT",
+                        alertMinutes = minutesBefore
+                    )
                     val safeHash = ((alert?.id?.hashCode() ?: 0) and 0x7FFFFFFF) % 10000
                     val pendingIntent = PendingIntent.getActivity(
                         context,
@@ -268,12 +264,12 @@ class AlarmReceiver : BroadcastReceiver() {
                 val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
                 val screenConfig = adhanRepo.getScreenConfig(PrayerType.FAJR)
 
-                val openIntent = Intent(context, MainActivity::class.java).apply {
-                    putExtra("TRIGGER_ADHAN_SCREEN", "FAJR")
-                    putExtra("TRIGGER_SCREEN_TYPE", "SUHOOR")
-                    putExtra("TRIGGER_MUSAHARATI_VIDEO", true)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
+                val openIntent = com.example.ui.LockScreenAdhanActivity.createIntent(
+                    context = context,
+                    prayer = PrayerType.FAJR,
+                    triggerType = "SUHOOR",
+                    videoUri = config.uriString
+                )
                 val pendingIntent = PendingIntent.getActivity(
                     context,
                     99,
@@ -330,12 +326,12 @@ class AlarmReceiver : BroadcastReceiver() {
                 val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
                 val screenConfig = adhanRepo.getScreenConfig(PrayerType.MAGHRIB)
 
-                val openIntent = Intent(context, MainActivity::class.java).apply {
-                    putExtra("TRIGGER_ADHAN_SCREEN", "MAGHRIB")
-                    putExtra("TRIGGER_SCREEN_TYPE", "IFTAR_CANNON")
-                    putExtra("TRIGGER_IFTAR_CANNON_VIDEO", true)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
+                val openIntent = com.example.ui.LockScreenAdhanActivity.createIntent(
+                    context = context,
+                    prayer = PrayerType.MAGHRIB,
+                    triggerType = "IFTAR_CANNON",
+                    videoUri = config.uriString
+                )
                 val pendingIntent = PendingIntent.getActivity(
                     context,
                     98,
