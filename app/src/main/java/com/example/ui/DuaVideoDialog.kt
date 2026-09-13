@@ -52,13 +52,15 @@ fun DuaVideoDialog(
     val activity = context as? Activity
     var hasError by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
-    var isLandscape by remember { mutableStateOf(false) }
+    var isLandscape by remember { mutableStateOf(true) }
 
     DisposableEffect(Unit) {
+        val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            activity?.requestedOrientation = originalOrientation
         }
     }
 
@@ -100,6 +102,10 @@ fun DuaVideoDialog(
                 AndroidView(
                     factory = { ctx ->
                         VideoView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
                             val mediaController = MediaController(ctx)
                             mediaController.setAnchorView(this)
                             setMediaController(mediaController)

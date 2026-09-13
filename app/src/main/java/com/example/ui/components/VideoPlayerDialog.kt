@@ -63,14 +63,16 @@ fun VideoPlayerDialog(
     }
 
     var showControls by remember { mutableStateOf(true) }
-    var isLandscape by remember { mutableStateOf(false) }
+    var isLandscape by remember { mutableStateOf(true) }
 
-    // Keep screen on while video dialog is open
+    // Keep screen on and set orientation to horizontal (landscape) while video dialog is open
     DisposableEffect(Unit) {
+        val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            activity?.requestedOrientation = originalOrientation
         }
     }
 
@@ -113,6 +115,10 @@ fun VideoPlayerDialog(
                 AndroidView(
                     factory = { ctx ->
                         VideoView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
                             val uri = Uri.parse(videoUriString)
                             setVideoURI(uri)
                             val controller = MediaController(ctx)
