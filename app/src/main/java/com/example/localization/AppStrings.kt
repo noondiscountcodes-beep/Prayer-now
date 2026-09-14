@@ -106,6 +106,12 @@ object AppStrings {
         AppLanguage.ENGLISH -> "Ramadan"
     }
 
+    fun tabSalawat(lang: AppLanguage): String = when (lang) {
+        AppLanguage.ARABIC -> "الصلاة على النبي"
+        AppLanguage.FRENCH -> "Prières sur le Prophète"
+        AppLanguage.ENGLISH -> "Salawat on Prophet"
+    }
+
     fun tabNotifications(lang: AppLanguage): String = when (lang) {
         AppLanguage.ARABIC -> "شريط الإشعارات"
         AppLanguage.FRENCH -> "Barre d'état"

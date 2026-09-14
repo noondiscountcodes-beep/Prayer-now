@@ -60,6 +60,7 @@ enum class MenuTab {
     ALERTS,
     ADHAN,
     RAMADAN,
+    SALAWAT,
     NOTIFICATION_BAR,
     SETTINGS_SECURITY
 }
@@ -139,6 +140,7 @@ fun MenuScreen(
                                 MenuTab.ALERTS -> AppStrings.tabAlerts(language)
                                 MenuTab.ADHAN -> AppStrings.tabAdhan(language)
                                 MenuTab.RAMADAN -> AppStrings.tabRamadan(language)
+                                MenuTab.SALAWAT -> AppStrings.tabSalawat(language)
                                 MenuTab.NOTIFICATION_BAR -> AppStrings.tabNotifications(language)
                                 MenuTab.SETTINGS_SECURITY -> AppStrings.tabSettings(language)
                             }
@@ -191,6 +193,7 @@ fun MenuScreen(
                             showVideoPreviewDialog = true
                         }
                     )
+                    MenuTab.SALAWAT -> SalawatTabContent(language = language)
                     MenuTab.NOTIFICATION_BAR -> NotificationBarTab(prefs, language)
                     MenuTab.SETTINGS_SECURITY -> SettingsSecurityTab(prefs, language)
                 }

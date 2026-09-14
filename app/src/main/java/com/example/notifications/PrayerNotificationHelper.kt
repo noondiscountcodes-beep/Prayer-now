@@ -21,12 +21,16 @@ object PrayerNotificationHelper {
     const val CHANNEL_ADHAN = "prayer_adhan_channel"
     const val CHANNEL_MUSAHARATI = "prayer_musaharati_channel"
     const val CHANNEL_IFTAR_CANNON = "prayer_iftar_cannon_channel"
+    const val CHANNEL_SALAWAT = "prayer_salawat_channel"
+    const val CHANNEL_SALAWAT_PERSISTENT = "salawat_persistent_countdown_channel"
 
     const val NOTIFICATION_ID_PERSISTENT = 1001
     const val NOTIFICATION_ID_ALERT = 2001
     const val NOTIFICATION_ID_ADHAN = 3001
     const val NOTIFICATION_ID_MUSAHARATI = 4001
     const val NOTIFICATION_ID_IFTAR_CANNON = 5001
+    const val NOTIFICATION_ID_SALAWAT = 6001
+    const val NOTIFICATION_ID_SALAWAT_PERSISTENT = 6002
 
     fun createNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -77,11 +81,31 @@ object PrayerNotificationHelper {
                 enableVibration(true)
             }
 
+            val salawatChannel = NotificationChannel(
+                CHANNEL_SALAWAT,
+                "الصلاة على النبي / Salawat on Prophet",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "تنبيهات وأصوات التذكير بالصلاة على النبي ﷺ / Salawat reminders"
+                enableVibration(true)
+            }
+
+            val salawatPersistentChannel = NotificationChannel(
+                CHANNEL_SALAWAT_PERSISTENT,
+                "شعار الصلاة على النبي الدائم / Persistent Salawat Reminder",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "إشعار دائم يعرض العد التنازلي للتذكير القادم بالصلاة على النبي ﷺ / Persistent countdown for Salawat"
+                setShowBadge(false)
+            }
+
             manager.createNotificationChannel(persistentChannel)
             manager.createNotificationChannel(alertsChannel)
             manager.createNotificationChannel(adhanChannel)
             manager.createNotificationChannel(musaharatiChannel)
             manager.createNotificationChannel(iftarCannonChannel)
+            manager.createNotificationChannel(salawatChannel)
+            manager.createNotificationChannel(salawatPersistentChannel)
         }
     }
 
@@ -118,5 +142,94 @@ object PrayerNotificationHelper {
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+    }
+
+    fun buildSalawatPersistentNotification(context: Context, nextTriggerTime: Long): Notification {
+        createNotificationChannels(context)
+        val prefs = AppPreferences(context)
+        val isArabic = prefs.getLanguage().code == "ar"
+
+        val openIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("OPEN_TAB", "SALAWAT")
+        }
+        val openPendingIntent = PendingIntent.getActivity(
+            context,
+            8810,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val triggerNowIntent = Intent(context, AlarmReceiver::class.java).apply {
+            action = AlarmReceiver.ACTION_SALAWAT_REMINDER
+        }
+        val triggerNowPendingIntent = PendingIntent.getBroadcast(
+            context,
+            8811,
+            triggerNowIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val salawatRepo = com.example.data.SalawatPreferencesRepository(context)
+        val config = salawatRepo.getConfig()
+        val audioDesc = if (config.audioSelectionMode == "SPECIFIC" && !config.selectedAudioFileName.isNullOrEmpty()) {
+            if (isArabic) "الصوت: ${config.selectedAudioFileName}" else "Audio: ${config.selectedAudioFileName}"
+        } else {
+            if (isArabic) "الصوت: عشوائي من ملف الـ ZIP" else "Audio: Random from ZIP"
+        }
+
+        val title = if (isArabic) "ﷺ الصلاة على النبي" else "ﷺ Salawat on Prophet Muhammad"
+        val content = if (isArabic) "الوقت المتبقي حتى التذكير القادم:" else "Next reminder in:"
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_SALAWAT_PERSISTENT)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setSubText(if (isArabic) "تذكير مستمر" else "Ongoing Reminder")
+            .setWhen(nextTriggerTime)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setContentIntent(openPendingIntent)
+            .addAction(
+                android.R.drawable.ic_media_play,
+                if (isArabic) "صلِّ الآن ﷺ" else "Pray Now ﷺ",
+                triggerNowPendingIntent
+            )
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(
+                        (if (isArabic) "«مَنْ صَلَّى عَلَيَّ صَلَاةً صَلَّى اللهُ عَلَيْهِ بِهَا عَشْرًا»"
+                         else "\"Whoever sends blessings upon me once, Allah sends blessings upon him tenfold.\"")
+                        + "\n" + audioDesc
+                    )
+            )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            builder.setChronometerCountDown(true)
+        }
+
+        return builder.build()
+    }
+
+    fun updateSalawatPersistentNotification(context: Context, nextTriggerTime: Long) {
+        try {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val notification = buildSalawatPersistentNotification(context, nextTriggerTime)
+            manager.notify(NOTIFICATION_ID_SALAWAT_PERSISTENT, notification)
+        } catch (e: Exception) {
+            android.util.Log.e("PrayerNotification", "Error updating Salawat persistent notification: ${e.message}")
+        }
+    }
+
+    fun cancelSalawatPersistentNotification(context: Context) {
+        try {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            manager.cancel(NOTIFICATION_ID_SALAWAT_PERSISTENT)
+        } catch (e: Exception) {
+            android.util.Log.e("PrayerNotification", "Error cancelling Salawat persistent notification: ${e.message}")
+        }
     }
 }

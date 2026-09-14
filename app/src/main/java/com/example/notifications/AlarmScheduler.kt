@@ -154,6 +154,9 @@ object AlarmScheduler {
                 }
             }
         }
+
+        // 4. Schedule Salawat on Prophet reminder
+        SalawatAlarmScheduler.scheduleNext(context)
     }
 
     private fun scheduleExact(

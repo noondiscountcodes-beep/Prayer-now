@@ -229,6 +229,7 @@ class MainActivity : ComponentActivity() {
                 "ADHAN" -> MenuTab.ADHAN
                 "ALERTS" -> MenuTab.ALERTS
                 "RAMADAN" -> MenuTab.RAMADAN
+                "SALAWAT" -> MenuTab.SALAWAT
                 "LOCATION" -> MenuTab.LOCATION_METHOD
                 else -> MenuTab.LANGUAGE
             }

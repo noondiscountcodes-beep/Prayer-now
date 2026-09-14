@@ -389,6 +389,67 @@ class AlarmReceiver : BroadcastReceiver() {
                 AlarmScheduler.scheduleAll(context)
                 WidgetSyncHelper.syncAll(context)
             }
+
+            ACTION_SALAWAT_REMINDER -> {
+                val salawatRepo = com.example.data.SalawatPreferencesRepository(context)
+                val config = salawatRepo.getConfig()
+                salawatRepo.setLastTriggerTime(System.currentTimeMillis())
+
+                acquireAlertWakeLock(context, "MosqueClock:SalawatReminderWake", 15_000L)
+
+                // Pick effective audio from zip (user custom choice or random)
+                val audioFile = com.example.media.SalawatZipManager.getEffectiveAudio(context, config)
+                val audioUri = if (audioFile != null && audioFile.exists()) {
+                    android.net.Uri.fromFile(audioFile).toString()
+                } else {
+                    null
+                }
+
+                // Play the audio (MediaHelper will play default tone if null)
+                MediaHelper.playAudioPreview(context, audioUri)
+
+                // Rich notification
+                val salawatPhrases = listOf(
+                    "اللَّهُمَّ صَلِّ وَسَلِّمْ وَبَارِكْ عَلَى نَبِيِّنَا مُحَمَّدٍ ﷺ",
+                    "«مَنْ صَلَّى عَلَيَّ صَلَاةً صَلَّى اللهُ عَلَيْهِ بِهَا عَشْرًا»",
+                    "«أَوْلَى النَّاسِ بِي يَوْمَ الْقِيَامَةِ أَكْثَرُهُمْ عَلَيَّ صَلَاةً»",
+                    "«أَكْثِرُوا عَلَيَّ مِنَ الصَّلَاةِ فِي يَوْمِ الْجُمُعَةِ وَلَيْلَةِ الْجُمُعَةِ»",
+                    "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَى إِبْرَاهِيمَ"
+                )
+                val notificationText = salawatPhrases.random()
+                val notificationTitle = if (lang.code == "ar") "ﷺ حان وقت الصلاة على النبي" else "Time for Salawat on the Prophet ﷺ"
+
+                val openIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("OPEN_TAB", "SALAWAT")
+                }
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    99,
+                    openIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val builder = NotificationCompat.Builder(context, PrayerNotificationHelper.CHANNEL_SALAWAT)
+                    .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                    .setContentTitle(notificationTitle)
+                    .setContentText(notificationText)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(notificationText))
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+
+                if (config.vibrate) {
+                    builder.setVibrate(longArrayOf(0, 400, 200, 400))
+                }
+
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.notify(PrayerNotificationHelper.NOTIFICATION_ID_SALAWAT, builder.build())
+
+                // Automatically schedule the next reminder
+                SalawatAlarmScheduler.scheduleNext(context)
+            }
         }
     }
 
@@ -398,6 +459,7 @@ class AlarmReceiver : BroadcastReceiver() {
         const val ACTION_MUSAHARATI = "com.example.ACTION_MUSAHARATI"
         const val ACTION_IFTAR_CANNON = "com.example.ACTION_IFTAR_CANNON"
         const val ACTION_TOGGLE_ALERTS = "com.example.ACTION_TOGGLE_ALERTS"
+        const val ACTION_SALAWAT_REMINDER = "com.example.ACTION_SALAWAT_REMINDER"
 
         const val EXTRA_PRAYER_NAME = "EXTRA_PRAYER_NAME"
         const val EXTRA_ALERT_ID = "EXTRA_ALERT_ID"
