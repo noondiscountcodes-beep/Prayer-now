@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.PowerManager
 import android.util.Log
 import com.example.data.AdhanPreferencesRepository
 import com.example.data.PrayerAudioConfig
@@ -29,9 +30,35 @@ data class SequencePlaybackState(
 object AdhanSequencePlayer {
     private const val TAG = "AdhanSequencePlayer"
     private var currentPlayer: MediaPlayer? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private val _playbackState = MutableStateFlow(SequencePlaybackState())
     val playbackState: StateFlow<SequencePlaybackState> = _playbackState.asStateFlow()
+
+    private fun acquireWakeLock(context: Context) {
+        try {
+            releaseWakeLock()
+            val pm = context.applicationContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MosqueClock:AdhanPlaybackWakeLock")?.apply {
+                setReferenceCounted(false)
+                acquire(15 * 60 * 1000L) // Keep CPU active for up to 15 minutes to guarantee full Adhan recitation
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not acquire wake lock: ${e.message}")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error releasing wake lock: ${e.message}")
+        } finally {
+            wakeLock = null
+        }
+    }
 
     fun playPrayerSequence(
         context: Context,
@@ -40,6 +67,7 @@ object AdhanSequencePlayer {
         onAdhanFinished: (() -> Unit)? = null
     ) {
         stopAll()
+        acquireWakeLock(context)
 
         val repo = AdhanPreferencesRepository(context)
         val alertConfig = repo.getAlertConfig(prayer)
@@ -84,6 +112,7 @@ object AdhanSequencePlayer {
         onAdhanFinished: (() -> Unit)?
     ) {
         if (!audioConfig.isEnabled) {
+            releaseWakeLock()
             _playbackState.value = SequencePlaybackState(
                 stage = AdhanPlaybackStage.FINISHED,
                 prayer = prayer,
@@ -107,7 +136,8 @@ object AdhanSequencePlayer {
                 context = context,
                 uriString = adhanUri,
                 onComplete = {
-                    stopAll()
+                    stopCurrentPlayer()
+                    releaseWakeLock()
                     _playbackState.value = SequencePlaybackState(
                         stage = AdhanPlaybackStage.FINISHED,
                         prayer = prayer,
@@ -117,7 +147,8 @@ object AdhanSequencePlayer {
                     onAdhanFinished?.invoke()
                 },
                 onError = {
-                    stopAll()
+                    stopCurrentPlayer()
+                    releaseWakeLock()
                     _playbackState.value = SequencePlaybackState(
                         stage = AdhanPlaybackStage.FINISHED,
                         prayer = prayer,
@@ -132,7 +163,8 @@ object AdhanSequencePlayer {
             playDefaultTone(
                 context = context,
                 onComplete = {
-                    stopAll()
+                    stopCurrentPlayer()
+                    releaseWakeLock()
                     _playbackState.value = SequencePlaybackState(
                         stage = AdhanPlaybackStage.FINISHED,
                         prayer = prayer,
@@ -160,9 +192,10 @@ object AdhanSequencePlayer {
         try {
             val uri = Uri.parse(uriString)
             val player = MediaPlayer().apply {
+                setWakeMode(context.applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
                 setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .setUsage(AudioAttributes.USAGE_ALARM)
                         .build()
                 )
@@ -197,17 +230,29 @@ object AdhanSequencePlayer {
         try {
             val toneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
                 ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
-            val player = MediaPlayer.create(context, toneUri)
-            if (player != null) {
-                player.setOnCompletionListener {
+            val player = MediaPlayer().apply {
+                setWakeMode(context.applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .build()
+                )
+                setDataSource(context, toneUri)
+                setOnPreparedListener { start() }
+                setOnCompletionListener {
                     stopCurrentPlayer()
                     onComplete()
                 }
-                player.start()
-                currentPlayer = player
-            } else {
-                onComplete()
+                setOnErrorListener { _, what, extra ->
+                    Log.e(TAG, "Default tone error: what=$what, extra=$extra")
+                    stopCurrentPlayer()
+                    onComplete()
+                    true
+                }
+                prepareAsync()
             }
+            currentPlayer = player
         } catch (e: Exception) {
             onComplete()
         }
@@ -215,6 +260,7 @@ object AdhanSequencePlayer {
 
     fun stopAll() {
         stopCurrentPlayer()
+        releaseWakeLock()
         _playbackState.value = SequencePlaybackState(
             stage = AdhanPlaybackStage.IDLE,
             isPlaying = false

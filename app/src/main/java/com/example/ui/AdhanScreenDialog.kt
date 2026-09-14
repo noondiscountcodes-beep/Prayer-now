@@ -144,15 +144,27 @@ fun AdhanFullScreenView(
         }
     }
 
-    // Safety timeout for alerts / adhan screens: if left unattended, dismiss after 3 minutes to avoid freezing phone / draining battery
-    LaunchedEffect(triggerType) {
-        val maxDurationMs = when (triggerType) {
-            "ALERT" -> 60_000L // 1 minute max for pre-prayer alert
-            "SUHOOR" -> 120_000L // 2 minutes max for suhoor alert
-            else -> 180_000L // 3 minutes max for adhan screen
+    // Safety timeout for alerts / adhan screens: if left unattended, dismiss gracefully without cutting off active Adhan recitation
+    LaunchedEffect(triggerType, playbackState.isPlaying, playbackState.stage) {
+        when (triggerType) {
+            "ALERT" -> {
+                delay(60_000L) // 1 minute max for pre-prayer alert
+                onDismiss()
+            }
+            "SUHOOR" -> {
+                delay(120_000L) // 2 minutes max for suhoor alert
+                onDismiss()
+            }
+            else -> {
+                // For Adhan: NEVER interrupt while Adhan or Alert audio is actively playing!
+                // The Adhan must be allowed to complete fully to the end.
+                // Once finished, LaunchedEffect(playbackState.stage) gracefully handles launching Dua video or auto-dismissing.
+                if (!playbackState.isPlaying && playbackState.stage == AdhanPlaybackStage.IDLE) {
+                    delay(600_000L) // 10 minutes safety fallback only if idle
+                    onDismiss()
+                }
+            }
         }
-        delay(maxDurationMs)
-        onDismiss()
     }
 
     val cal = Calendar.getInstance(prefs.getTimezone()).apply {

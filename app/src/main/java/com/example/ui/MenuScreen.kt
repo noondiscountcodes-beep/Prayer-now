@@ -715,11 +715,12 @@ private fun LocationMethodTab(prefs: AppPreferences, language: AppLanguage) {
                                 color = if (offset != 0) IslamicGoldLight else Color.White,
                                 style = MaterialTheme.typography.bodyMedium
                             )
-                            val timeFormatted = if (language.code == "ar") {
-                                PrayerBannerHelper.toArabicDigits(entry.formattedTime12)
-                            } else {
-                                entry.formattedTime12
-                            }
+                            val timeFormatted = PrayerBannerHelper.formatPrayerTime(
+                                entry.timestampMillis,
+                                prefs.getTimezone(),
+                                language.code == "ar",
+                                prefs.is24HourFormat()
+                            )
                             Text(
                                 text = timeFormatted,
                                 style = MaterialTheme.typography.bodySmall,
@@ -1913,6 +1914,8 @@ private fun RamadanTab(
 private fun NotificationBarTab(prefs: AppPreferences, language: AppLanguage) {
     val context = LocalContext.current
     var isEnabled by remember { mutableStateOf(prefs.isPersistentNotificationEnabled()) }
+    var is24Hour by remember { mutableStateOf(prefs.is24HourFormat()) }
+    var showSeconds by remember { mutableStateOf(prefs.isShowSecondsEnabled()) }
 
     Column(
         modifier = Modifier
@@ -1977,6 +1980,153 @@ private fun NotificationBarTab(prefs: AppPreferences, language: AppLanguage) {
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Time Format Card (12-hour or 24-hour)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MosqueCardBorder)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = if (language.code == "ar") "تنسيق الوقت (12 أو 24 ساعة)" else "Time Format (12 or 24 Hours)",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = if (language.code == "ar")
+                        "اختر طريقة عرض الوقت في الإشعارات والتطبيقات المصغرة وساعة التطبيق"
+                    else
+                        "Choose how time is displayed across notifications, widgets, and main clock",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFA5BFB9),
+                    modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // 12-hour option
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (!is24Hour) IslamicGoldPrimary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
+                            .border(
+                                1.5.dp,
+                                if (!is24Hour) IslamicGoldPrimary else Color.White.copy(alpha = 0.15f),
+                                RoundedCornerShape(10.dp)
+                            )
+                            .clickable {
+                                is24Hour = false
+                                prefs.set24HourFormat(false)
+                                WidgetSyncHelper.syncAll(context)
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = if (language.code == "ar") "12 ساعة (ص / م)" else "12-Hour (AM / PM)",
+                                fontWeight = FontWeight.Bold,
+                                color = if (!is24Hour) IslamicGoldLight else Color.White,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (language.code == "ar") "مثال: ٠٤:٢٥ م" else "e.g. 04:25 PM",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (!is24Hour) IslamicGoldPrimary else Color(0xFFA5BFB9),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    // 24-hour option
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (is24Hour) IslamicGoldPrimary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
+                            .border(
+                                1.5.dp,
+                                if (is24Hour) IslamicGoldPrimary else Color.White.copy(alpha = 0.15f),
+                                RoundedCornerShape(10.dp)
+                            )
+                            .clickable {
+                                is24Hour = true
+                                prefs.set24HourFormat(true)
+                                WidgetSyncHelper.syncAll(context)
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = if (language.code == "ar") "24 ساعة" else "24-Hour",
+                                fontWeight = FontWeight.Bold,
+                                color = if (is24Hour) IslamicGoldLight else Color.White,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (language.code == "ar") "مثال: ١٦:٢٥" else "e.g. 16:25",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (is24Hour) IslamicGoldPrimary else Color(0xFFA5BFB9),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Seconds Counter Toggle
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MosqueCardBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (language.code == "ar") "تشغيل عداد الثواني (ثانية بثانية)" else "Enable Live Seconds Counter",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = if (language.code == "ar")
+                            "عرض الثواني وتحديث مستمر في شريط الإشعارات والتطبيقات المصغرة وساعة التطبيق"
+                        else
+                            "Show live ticking seconds in notification bar, widgets, and main mosque clock",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFA5BFB9)
+                    )
+                }
+                Switch(
+                    checked = showSeconds,
+                    onCheckedChange = { checked ->
+                        showSeconds = checked
+                        prefs.setShowSecondsEnabled(checked)
+                        if (isEnabled) {
+                            PrayerNotificationService.start(context)
+                        }
+                        WidgetSyncHelper.syncAll(context)
+                    }
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
@@ -2028,9 +2178,13 @@ private fun NotificationBarTab(prefs: AppPreferences, language: AppLanguage) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (language.code == "ar") "+ ٤٧:٤٥" else "+ 47:45",
+                            text = if (showSeconds) {
+                                if (language.code == "ar") "+ ٤٧:٤٥:١٢" else "+ 47:45:12"
+                            } else {
+                                if (language.code == "ar") "+ ٤٧:٤٥" else "+ 47:45"
+                            },
                             color = Color.White,
-                            fontSize = 30.sp,
+                            fontSize = if (showSeconds) 24.sp else 30.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
@@ -2050,13 +2204,23 @@ private fun NotificationBarTab(prefs: AppPreferences, language: AppLanguage) {
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     data class ColItem(val nameAr: String, val nameEn: String, val time: String, val badge: String?, val isActive: Boolean)
-                    val items = listOf(
-                        ColItem("العشاء", "Isha", "08:31 م", null, false),
-                        ColItem("المغرب", "Maghrib", "07:12 م", null, false),
-                        ColItem("العصر", "Asr", "04:26 م", if (language.code == "ar") "لاحقا" else "Next", false),
-                        ColItem("الظهر", "Dhuhr", "12:53 م", if (language.code == "ar") "الان" else "Now", true),
-                        ColItem("الفجر", "Fajr", "05:01 ص", null, false)
-                    )
+                    val items = if (is24Hour) {
+                        listOf(
+                            ColItem("العشاء", "Isha", if (language.code == "ar") "٢٠:٣١" else "20:31", null, false),
+                            ColItem("المغرب", "Maghrib", if (language.code == "ar") "١٩:١٢" else "19:12", null, false),
+                            ColItem("العصر", "Asr", if (language.code == "ar") "١٦:٢٦" else "16:26", if (language.code == "ar") "لاحقا" else "Next", false),
+                            ColItem("الظهر", "Dhuhr", if (language.code == "ar") "١٢:٥٣" else "12:53", if (language.code == "ar") "الان" else "Now", true),
+                            ColItem("الفجر", "Fajr", if (language.code == "ar") "٠٥:٠١" else "05:01", null, false)
+                        )
+                    } else {
+                        listOf(
+                            ColItem("العشاء", "Isha", if (language.code == "ar") "٠٨:٣١ م" else "08:31 PM", null, false),
+                            ColItem("المغرب", "Maghrib", if (language.code == "ar") "٠٧:١٢ م" else "07:12 PM", null, false),
+                            ColItem("العصر", "Asr", if (language.code == "ar") "٠٤:٢٦ م" else "04:26 PM", if (language.code == "ar") "لاحقا" else "Next", false),
+                            ColItem("الظهر", "Dhuhr", if (language.code == "ar") "١٢:٥٣ م" else "12:53 PM", if (language.code == "ar") "الان" else "Now", true),
+                            ColItem("الفجر", "Fajr", if (language.code == "ar") "٠٥:٠١ ص" else "05:01 AM", null, false)
+                        )
+                    }
 
                     for (item in items) {
                         Column(
@@ -2130,6 +2294,8 @@ private fun NotificationBarTab(prefs: AppPreferences, language: AppLanguage) {
 @Composable
 private fun SettingsSecurityTab(prefs: AppPreferences, language: AppLanguage) {
     val context = LocalContext.current
+    var is24Hour by remember { mutableStateOf(prefs.is24HourFormat()) }
+    var showSeconds by remember { mutableStateOf(prefs.isShowSecondsEnabled()) }
 
     Column(
         modifier = Modifier
@@ -2144,6 +2310,140 @@ private fun SettingsSecurityTab(prefs: AppPreferences, language: AppLanguage) {
         )
 
         Spacer(modifier = Modifier.height(12.dp))
+
+        // Time Format & Seconds Settings Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MosqueCardBorder)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = if (language.code == "ar") "تنسيق الوقت وعرض الثواني" else "Time Format & Seconds Display",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = if (language.code == "ar")
+                        "التحكم في صيغة الوقت (12 أو 24 ساعة) وتفعيل عداد الثواني الحي"
+                    else
+                        "Configure 12/24 hour format and live seconds countdown",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFA5BFB9),
+                    modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // 12-hour option
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (!is24Hour) IslamicGoldPrimary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
+                            .border(
+                                1.5.dp,
+                                if (!is24Hour) IslamicGoldPrimary else Color.White.copy(alpha = 0.15f),
+                                RoundedCornerShape(10.dp)
+                            )
+                            .clickable {
+                                is24Hour = false
+                                prefs.set24HourFormat(false)
+                                WidgetSyncHelper.syncAll(context)
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = if (language.code == "ar") "12 ساعة (ص / م)" else "12-Hour (AM / PM)",
+                                fontWeight = FontWeight.Bold,
+                                color = if (!is24Hour) IslamicGoldLight else Color.White,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (language.code == "ar") "مثال: ٠٤:٢٥ م" else "e.g. 04:25 PM",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (!is24Hour) IslamicGoldPrimary else Color(0xFFA5BFB9),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    // 24-hour option
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (is24Hour) IslamicGoldPrimary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
+                            .border(
+                                1.5.dp,
+                                if (is24Hour) IslamicGoldPrimary else Color.White.copy(alpha = 0.15f),
+                                RoundedCornerShape(10.dp)
+                            )
+                            .clickable {
+                                is24Hour = true
+                                prefs.set24HourFormat(true)
+                                WidgetSyncHelper.syncAll(context)
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = if (language.code == "ar") "24 ساعة" else "24-Hour",
+                                fontWeight = FontWeight.Bold,
+                                color = if (is24Hour) IslamicGoldLight else Color.White,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (language.code == "ar") "مثال: ١٦:٢٥" else "e.g. 16:25",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (is24Hour) IslamicGoldPrimary else Color(0xFFA5BFB9),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (language.code == "ar") "تشغيل عداد الثواني" else "Enable Seconds Counter",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (language.code == "ar") "تحديث حي بالثواني في الإشعارات والتطبيقات المصغرة" else "Live seconds update in notification bar & widgets",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFA5BFB9)
+                        )
+                    }
+                    Switch(
+                        checked = showSeconds,
+                        onCheckedChange = { checked ->
+                            showSeconds = checked
+                            prefs.setShowSecondsEnabled(checked)
+                            if (prefs.isPersistentNotificationEnabled()) {
+                                PrayerNotificationService.start(context)
+                            }
+                            WidgetSyncHelper.syncAll(context)
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Privacy First Pillar Card
         Card(

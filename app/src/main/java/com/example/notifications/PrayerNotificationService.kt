@@ -56,9 +56,14 @@ class PrayerNotificationService : Service() {
         updateJob?.cancel()
         updateJob = serviceScope.launch {
             while (isActive) {
-                // Sleep for 30 seconds for battery-friendly countdown update
-                delay(30_000L)
                 val prefs = AppPreferences(this@PrayerNotificationService)
+                if (!prefs.isPersistentNotificationEnabled()) {
+                    stopSelf()
+                    break
+                }
+                // Live ticking every second when seconds counter is enabled, else 30 seconds
+                val intervalMs = if (prefs.isShowSecondsEnabled()) 1_000L else 30_000L
+                delay(intervalMs)
                 if (!prefs.isPersistentNotificationEnabled()) {
                     stopSelf()
                     break

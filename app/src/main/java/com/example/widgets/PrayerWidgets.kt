@@ -34,9 +34,9 @@ class NextPrayerWidget : AppWidgetProvider() {
         val now = System.currentTimeMillis()
         val next = schedule.getNextPrayer(now)
         val remainingSec = schedule.getRemainingSecondsToNext(now)
-        val remainingFormatted = PrayerDaySchedule.formatRemaining(remainingSec)
+        val showSeconds = prefs.isShowSecondsEnabled()
+        val remainingDigits = PrayerBannerHelper.formatCountdown(remainingSec, showSeconds, lang.code == "ar")
         val nextName = AppStrings.getPrayerName(next.type, lang)
-        val remainingDigits = if (lang.code == "ar") PrayerBannerHelper.toArabicDigits(remainingFormatted) else remainingFormatted
 
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -133,6 +133,8 @@ class RamadanWidget : AppWidgetProvider() {
         val now = System.currentTimeMillis()
         val suhoorLabel = if (lang.code == "ar") "السحور / الإمساك" else "Suhoor"
         val iftarLabel = if (lang.code == "ar") "الإفطار" else "Iftar"
+        val is24h = prefs.is24HourFormat()
+        val showSeconds = prefs.isShowSecondsEnabled()
 
         val isBeforeIftar = now < schedule.maghrib.timestampMillis
         val diffSec = if (isBeforeIftar) {
@@ -140,13 +142,16 @@ class RamadanWidget : AppWidgetProvider() {
         } else {
             (schedule.fajr.timestampMillis + 24 * 3600 * 1000L - now) / 1000
         }
-        val countdown = PrayerDaySchedule.formatRemaining(diffSec)
+        val countdown = PrayerBannerHelper.formatCountdown(diffSec, showSeconds, lang.code == "ar")
 
         val targetLabel = if (isBeforeIftar) {
             if (lang.code == "ar") "متبقي للإفطار: $countdown" else "Time to Iftar: $countdown"
         } else {
             if (lang.code == "ar") "متبقي للسحور: $countdown" else "Time to Suhoor: $countdown"
         }
+
+        val fajrTime = PrayerBannerHelper.formatPrayerTime(schedule.fajr.timestampMillis, prefs.getTimezone(), lang.code == "ar", is24h)
+        val maghribTime = PrayerBannerHelper.formatPrayerTime(schedule.maghrib.timestampMillis, prefs.getTimezone(), lang.code == "ar", is24h)
 
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -156,8 +161,8 @@ class RamadanWidget : AppWidgetProvider() {
 
         for (id in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.widget_ramadan)
-            views.setTextViewText(R.id.tv_suhoor_time, "$suhoorLabel\n${schedule.fajr.formattedTime24}")
-            views.setTextViewText(R.id.tv_iftar_time, "$iftarLabel\n${schedule.maghrib.formattedTime24}")
+            views.setTextViewText(R.id.tv_suhoor_time, "$suhoorLabel\n$fajrTime")
+            views.setTextViewText(R.id.tv_iftar_time, "$iftarLabel\n$maghribTime")
             views.setTextViewText(R.id.tv_ramadan_countdown, targetLabel)
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
             appWidgetManager.updateAppWidget(id, views)

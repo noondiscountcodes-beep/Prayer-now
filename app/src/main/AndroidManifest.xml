@@ -53,7 +53,6 @@
             android:turnScreenOn="true"
             android:showForAllUsers="true"
             android:excludeFromRecents="true"
-            android:noHistory="true"
             android:taskAffinity=""
             android:launchMode="singleInstance"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"

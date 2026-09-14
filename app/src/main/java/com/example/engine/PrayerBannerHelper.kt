@@ -28,16 +28,38 @@ object PrayerBannerHelper {
         return sb.toString()
     }
 
-    fun formatTime12h(timestampMillis: Long, tz: TimeZone, isArabic: Boolean): String {
+    fun formatPrayerTime(timestampMillis: Long, tz: TimeZone, isArabic: Boolean, is24Hour: Boolean): String {
         val cal = Calendar.getInstance(tz).apply { timeInMillis = timestampMillis }
         val hour24 = cal.get(Calendar.HOUR_OF_DAY)
-        val hour12 = cal.get(Calendar.HOUR).let { if (it == 0) 12 else it }
         val minute = cal.get(Calendar.MINUTE)
-        val isPm = hour24 >= 12
-        val marker = if (isArabic) (if (isPm) "م" else "ص") else (if (isPm) "PM" else "AM")
-        val rawTime = String.format(Locale.US, "%02d:%02d", hour12, minute)
-        val finalDigits = if (isArabic) toArabicDigits(rawTime) else rawTime
-        return "$finalDigits $marker"
+        return if (is24Hour) {
+            val rawTime = String.format(Locale.US, "%02d:%02d", hour24, minute)
+            if (isArabic) toArabicDigits(rawTime) else rawTime
+        } else {
+            val hour12 = cal.get(Calendar.HOUR).let { if (it == 0) 12 else it }
+            val isPm = hour24 >= 12
+            val marker = if (isArabic) (if (isPm) "م" else "ص") else (if (isPm) "PM" else "AM")
+            val rawTime = String.format(Locale.US, "%02d:%02d", hour12, minute)
+            val finalDigits = if (isArabic) toArabicDigits(rawTime) else rawTime
+            "$finalDigits $marker"
+        }
+    }
+
+    fun formatTime12h(timestampMillis: Long, tz: TimeZone, isArabic: Boolean): String {
+        return formatPrayerTime(timestampMillis, tz, isArabic, false)
+    }
+
+    fun formatCountdown(remainingSec: Long, showSeconds: Boolean, isArabic: Boolean): String {
+        val s = if (remainingSec < 0) 0 else remainingSec
+        val hours = s / 3600
+        val mins = (s % 3600) / 60
+        val secs = s % 60
+        val timeStr = if (showSeconds) {
+            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.US, "%02d:%02d", hours, mins)
+        }
+        return if (isArabic) toArabicDigits(timeStr) else timeStr
     }
 
     fun calculateDiffString(currentTime: Long, currentPrayerMillis: Long, isArabic: Boolean): String {
@@ -83,16 +105,10 @@ object PrayerBannerHelper {
         views.setTextViewText(R.id.tv_city_name, cityName)
 
         // Hero Banner - user requested: after Fajr say remaining until Dhuhr, and likewise after each prayer
+        val is24h = prefs.is24HourFormat()
+        val showSeconds = prefs.isShowSecondsEnabled()
         val remainingSec = schedule.getRemainingSecondsToNext(now)
-        val hours = remainingSec / 3600
-        val mins = (remainingSec % 3600) / 60
-        val secs = remainingSec % 60
-        val timeStr = if (hours > 0) {
-            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
-        } else {
-            String.format(Locale.US, "%02d:%02d", mins, secs)
-        }
-        val timeDigits = if (isArabic) toArabicDigits(timeStr) else timeStr
+        val timeDigits = formatCountdown(remainingSec, showSeconds, isArabic)
         val heroDiff = if (isArabic) "يتبقى $timeDigits على $nextPrayerName" else "$timeDigits until $nextPrayerName"
 
         views.setTextViewText(R.id.tv_hero_prayer, nextPrayerName)
@@ -118,7 +134,7 @@ object PrayerBannerHelper {
 
         for (col in prayerColumns) {
             views.setTextViewText(col.nameId, AppStrings.getPrayerName(col.prayerType, lang))
-            views.setTextViewText(col.timeId, formatTime12h(col.timeMillis, tz, isArabic))
+            views.setTextViewText(col.timeId, formatPrayerTime(col.timeMillis, tz, isArabic, is24h))
 
             if (col.prayerType == currentType) {
                 // Active column
@@ -195,16 +211,10 @@ object PrayerBannerHelper {
         views.setTextViewText(R.id.notif_city_name, prefs.getCityName())
 
         // Hero Banner - Next prayer countdown (e.g. after Fajr: remaining until Dhuhr)
+        val is24h = prefs.is24HourFormat()
+        val showSeconds = prefs.isShowSecondsEnabled()
         val remainingSec = schedule.getRemainingSecondsToNext(now)
-        val hours = remainingSec / 3600
-        val mins = (remainingSec % 3600) / 60
-        val secs = remainingSec % 60
-        val timeStr = if (hours > 0) {
-            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
-        } else {
-            String.format(Locale.US, "%02d:%02d", mins, secs)
-        }
-        val timeDigits = if (isArabic) toArabicDigits(timeStr) else timeStr
+        val timeDigits = formatCountdown(remainingSec, showSeconds, isArabic)
         val heroDiff = if (isArabic) "يتبقى $timeDigits على $nextPrayerName" else "$timeDigits until $nextPrayerName"
 
         views.setTextViewText(R.id.notif_hero_prayer, nextPrayerName)
@@ -229,7 +239,7 @@ object PrayerBannerHelper {
 
         for (col in columns) {
             views.setTextViewText(col.nameId, AppStrings.getPrayerName(col.prayerType, lang))
-            views.setTextViewText(col.timeId, formatTime12h(col.timeMillis, tz, isArabic))
+            views.setTextViewText(col.timeId, formatPrayerTime(col.timeMillis, tz, isArabic, is24h))
 
             if (col.prayerType == currentType) {
                 views.setTextViewText(col.badgeId, if (isArabic) "الحالية" else "Current")
@@ -299,16 +309,9 @@ object PrayerBannerHelper {
         val nextType = nextPrayer.type
         val nextPrayerName = AppStrings.getPrayerName(nextType, lang)
 
+        val showSeconds = prefs.isShowSecondsEnabled()
         val remainingSec = schedule.getRemainingSecondsToNext(now)
-        val hours = remainingSec / 3600
-        val mins = (remainingSec % 3600) / 60
-        val secs = remainingSec % 60
-        val timeStr = if (hours > 0) {
-            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
-        } else {
-            String.format(Locale.US, "%02d:%02d", mins, secs)
-        }
-        val timeDigits = if (isArabic) toArabicDigits(timeStr) else timeStr
+        val timeDigits = formatCountdown(remainingSec, showSeconds, isArabic)
         val heroDiff = if (isArabic) "يتبقى $timeDigits على $nextPrayerName" else "$timeDigits until $nextPrayerName"
 
         views.setTextViewText(R.id.notif_collapsed_prayer, nextPrayerName)

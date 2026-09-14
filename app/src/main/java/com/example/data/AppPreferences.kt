@@ -211,6 +211,20 @@ class AppPreferences(private val context: Context) {
         notifyChanged()
     }
 
+    // Time Format (12-hour or 24-hour)
+    fun is24HourFormat(): Boolean = prefs.getBoolean("time_format_24", false)
+    fun set24HourFormat(is24: Boolean) {
+        prefs.edit().putBoolean("time_format_24", is24).apply()
+        notifyChanged()
+    }
+
+    // Seconds Counter (Live ticking seconds in notification bar, widgets, and main clock)
+    fun isShowSecondsEnabled(): Boolean = prefs.getBoolean("show_seconds_enabled", true)
+    fun setShowSecondsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("show_seconds_enabled", enabled).apply()
+        notifyChanged()
+    }
+
     // Ramadan
     fun getRamadanMode(): RamadanMode {
         val name = prefs.getString("ramadan_mode", RamadanMode.AUTO.name) ?: RamadanMode.AUTO.name

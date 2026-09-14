@@ -84,26 +84,55 @@ fun MosqueClockScreen(
     val remainingSeconds = remember(currentTimeMillis, schedule) {
         schedule.getRemainingSecondsToNext(currentTimeMillis)
     }
-    val rawRemaining = remember(remainingSeconds) {
-        PrayerDaySchedule.formatRemaining(remainingSeconds)
+    val is24Hour = remember(refreshTrigger) { prefs.is24HourFormat() }
+    val showSeconds = remember(refreshTrigger) { prefs.isShowSecondsEnabled() }
+
+    val rawRemaining = remember(remainingSeconds, showSeconds) {
+        val s = if (remainingSeconds < 0) 0 else remainingSeconds
+        val hours = s / 3600
+        val mins = (s % 3600) / 60
+        val secs = s % 60
+        if (showSeconds) {
+            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.US, "%02d:%02d", hours, mins)
+        }
     }
     val formattedRemaining = remember(rawRemaining, isArabic) {
         formatLocalizedDigits(rawRemaining, isArabic)
     }
 
-    // Clock time format (e.g., 02:45:18 or 02:45)
-    val timeFormat = remember(language) {
-        SimpleDateFormat("hh:mm", Locale.US).apply { timeZone = timezone }
+    // Clock time format (12h or 24h, with or without seconds)
+    val timePattern = remember(is24Hour, showSeconds) {
+        if (is24Hour) {
+            if (showSeconds) "HH:mm:ss" else "HH:mm"
+        } else {
+            if (showSeconds) "hh:mm:ss" else "hh:mm"
+        }
     }
-    val rawClockTime = remember(currentTimeMillis) { timeFormat.format(calendar.time) }
+    val timeFormat = remember(timePattern, timezone) {
+        SimpleDateFormat(timePattern, Locale.US).apply { timeZone = timezone }
+    }
+    val rawClockTime = remember(currentTimeMillis, timeFormat) { timeFormat.format(calendar.time) }
     val clockTimeString = remember(rawClockTime, isArabic) {
         formatLocalizedDigits(rawClockTime, isArabic)
     }
 
-    val amPmFormat = remember {
+    val amPmFormat = remember(timezone) {
         SimpleDateFormat("a", Locale.US).apply { timeZone = timezone }
     }
-    val amPmString = remember(currentTimeMillis) { amPmFormat.format(calendar.time) }
+    val amPmString = remember(currentTimeMillis, is24Hour, isArabic) {
+        if (is24Hour) {
+            ""
+        } else {
+            val raw = amPmFormat.format(calendar.time)
+            if (isArabic) {
+                if (raw.contains("AM", ignoreCase = true)) "ص" else "م"
+            } else {
+                raw
+            }
+        }
+    }
 
     val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
     val dayName = remember(dayOfWeek, language) {
@@ -265,21 +294,23 @@ fun MosqueClockScreen(
                     ) {
                         Text(
                             text = clockTimeString,
-                            fontSize = 62.sp,
+                            fontSize = if (showSeconds) 46.sp else 62.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
                             color = Color.White,
-                            letterSpacing = (-2).sp,
-                            lineHeight = 64.sp
+                            letterSpacing = (-1).sp,
+                            lineHeight = if (showSeconds) 48.sp else 64.sp
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = amPmString,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PolishGold,
-                            modifier = Modifier.padding(bottom = 10.dp)
-                        )
+                        if (!is24Hour && amPmString.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = amPmString,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PolishGold,
+                                modifier = Modifier.padding(bottom = if (showSeconds) 6.dp else 10.dp)
+                            )
+                        }
                     }
 
                     // Floating Pill with Next Prayer & Countdown Ticker
@@ -380,9 +411,8 @@ fun MosqueClockScreen(
                 schedule.allEntries.forEach { entry ->
                     val isNext = entry.type == nextPrayerEntry.type
                     val prayerIcon = getPrayerIcon(entry.type)
-                    val rawEntryTime = entry.formattedTime24
-                    val localizedTime = remember(rawEntryTime, isArabic) {
-                        formatLocalizedDigits(rawEntryTime, isArabic)
+                    val localizedTime = remember(entry.timestampMillis, timezone, isArabic, is24Hour) {
+                        PrayerBannerHelper.formatPrayerTime(entry.timestampMillis, timezone, isArabic, is24Hour)
                     }
 
                     if (isNext) {

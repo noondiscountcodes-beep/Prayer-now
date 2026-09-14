@@ -116,7 +116,6 @@ class LockScreenAdhanActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        AdhanSequencePlayer.stopAll()
         MediaHelper.stopAudioPreview()
         try {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
