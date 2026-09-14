@@ -4,8 +4,9 @@ import com.example.engine.PrayerType
 
 object AppStrings {
 
-    fun getPrayerName(type: PrayerType, lang: AppLanguage): String {
-        return when (type) {
+    fun getPrayerName(type: PrayerType, lang: AppLanguage, isFriday: Boolean = false): String {
+        val effectiveType = if (type == PrayerType.DHUHR && isFriday) PrayerType.JUMUAH else type
+        return when (effectiveType) {
             PrayerType.FAJR -> when (lang) {
                 AppLanguage.ARABIC -> "الفجر"
                 AppLanguage.FRENCH -> "Fajr"
@@ -35,6 +36,11 @@ object AppStrings {
                 AppLanguage.ARABIC -> "العشاء"
                 AppLanguage.FRENCH -> "Icha"
                 AppLanguage.ENGLISH -> "Isha"
+            }
+            PrayerType.JUMUAH -> when (lang) {
+                AppLanguage.ARABIC -> "الجمعة"
+                AppLanguage.FRENCH -> "Vendredi"
+                AppLanguage.ENGLISH -> "Jumu'ah"
             }
         }
     }

@@ -24,6 +24,9 @@ class AdhanPreferencesRepository(context: Context) {
     // 1. Audio Config (Adhan Sound)
     fun getAudioConfig(prayer: PrayerType): PrayerAudioConfig {
         val p = prayer.name.lowercase()
+        if (prayer == PrayerType.JUMUAH && !prefs.contains("audio_${p}_uri") && !prefs.contains("audio_${p}_name")) {
+            return getAudioConfig(PrayerType.DHUHR)
+        }
         return PrayerAudioConfig(
             uriString = prefs.getString("audio_${p}_uri", null),
             fileName = prefs.getString("audio_${p}_name", null),
@@ -64,6 +67,9 @@ class AdhanPreferencesRepository(context: Context) {
     // 2. Alert Sound (Immediately before Adhan at exact prayer time)
     fun getAlertConfig(prayer: PrayerType): PrayerAlertSoundConfig {
         val p = prayer.name.lowercase()
+        if (prayer == PrayerType.JUMUAH && !prefs.contains("alert_${p}_uri") && !prefs.contains("alert_${p}_name")) {
+            return getAlertConfig(PrayerType.DHUHR)
+        }
         return PrayerAlertSoundConfig(
             uriString = prefs.getString("alert_${p}_uri", null),
             fileName = prefs.getString("alert_${p}_name", null),
@@ -104,6 +110,9 @@ class AdhanPreferencesRepository(context: Context) {
     // 3. Post-Adhan Du'aa Video
     fun getDuaConfig(prayer: PrayerType): PrayerDuaVideoConfig {
         val p = prayer.name.lowercase()
+        if (prayer == PrayerType.JUMUAH && !prefs.contains("dua_${p}_uri") && !prefs.contains("dua_${p}_name")) {
+            return getDuaConfig(PrayerType.DHUHR)
+        }
         return PrayerDuaVideoConfig(
             uriString = prefs.getString("dua_${p}_uri", null),
             fileName = prefs.getString("dua_${p}_name", null),
@@ -144,6 +153,9 @@ class AdhanPreferencesRepository(context: Context) {
     // 4. Adhan Screen Settings
     fun getScreenConfig(prayer: PrayerType): AdhanScreenConfig {
         val p = prayer.name.lowercase()
+        if (prayer == PrayerType.JUMUAH && !prefs.contains("screen_${p}_mode") && !prefs.contains("screen_${p}_images")) {
+            return getScreenConfig(PrayerType.DHUHR)
+        }
         val modeStr = prefs.getString("screen_${p}_mode", AdhanScreenDisplayMode.SLIDESHOW.name)
             ?: AdhanScreenDisplayMode.SLIDESHOW.name
         val mode = try { AdhanScreenDisplayMode.valueOf(modeStr) } catch (e: Exception) { AdhanScreenDisplayMode.SLIDESHOW }

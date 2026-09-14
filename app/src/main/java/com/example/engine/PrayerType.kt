@@ -6,7 +6,8 @@ enum class PrayerType {
     DHUHR,
     ASR,
     MAGHRIB,
-    ISHA;
+    ISHA,
+    JUMUAH;
 
     val isObligatoryPrayer: Boolean
         get() = this != SUNRISE

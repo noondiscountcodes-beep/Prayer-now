@@ -128,15 +128,13 @@ fun AddEditAlertDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    val prayerOptions = listOf(
+                    val row1 = listOf(
                         "ALL" to if (language.code == "ar") "الكل" else "All",
                         "FAJR" to AppStrings.getPrayerName(PrayerType.FAJR, language),
                         "DHUHR" to AppStrings.getPrayerName(PrayerType.DHUHR, language),
-                        "ASR" to AppStrings.getPrayerName(PrayerType.ASR, language),
-                        "MAGHRIB" to AppStrings.getPrayerName(PrayerType.MAGHRIB, language),
-                        "ISHA" to AppStrings.getPrayerName(PrayerType.ISHA, language)
+                        "JUMUAH" to AppStrings.getPrayerName(PrayerType.JUMUAH, language)
                     )
-                    prayerOptions.take(3).forEach { (id, label) ->
+                    row1.forEach { (id, label) ->
                         FilterChip(
                             selected = targetPrayer == id,
                             onClick = { targetPrayer = id },
@@ -150,12 +148,12 @@ fun AddEditAlertDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    val prayerOptions2 = listOf(
+                    val row2 = listOf(
                         "ASR" to AppStrings.getPrayerName(PrayerType.ASR, language),
                         "MAGHRIB" to AppStrings.getPrayerName(PrayerType.MAGHRIB, language),
                         "ISHA" to AppStrings.getPrayerName(PrayerType.ISHA, language)
                     )
-                    prayerOptions2.forEach { (id, label) ->
+                    row2.forEach { (id, label) ->
                         FilterChip(
                             selected = targetPrayer == id,
                             onClick = { targetPrayer = id },

@@ -18,6 +18,7 @@ import com.example.engine.PrayerType
 import com.example.localization.AppStrings
 import com.example.media.MediaHelper
 import com.example.widgets.WidgetSyncHelper
+import java.util.Calendar
 
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -43,7 +44,9 @@ class AlarmReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_PRAYER_ALARM -> {
                 val prayerNameStr = intent.getStringExtra(EXTRA_PRAYER_NAME) ?: "FAJR"
-                val prayerType = try { PrayerType.valueOf(prayerNameStr) } catch (e: Exception) { PrayerType.FAJR }
+                val rawPrayerType = try { PrayerType.valueOf(prayerNameStr) } catch (e: Exception) { PrayerType.FAJR }
+                val isFriday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
+                val prayerType = if (rawPrayerType == PrayerType.DHUHR && isFriday) PrayerType.JUMUAH else rawPrayerType
                 val localizedName = AppStrings.getPrayerName(prayerType, lang)
 
                 val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
@@ -185,9 +188,12 @@ class AlarmReceiver : BroadcastReceiver() {
                     PrayerType.FAJR
                 }
 
+                val isFriday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
+                val effectivePrayerType = if (targetPrayerType == PrayerType.DHUHR && isFriday) PrayerType.JUMUAH else targetPrayerType
+
                 if (alert == null || alert.isEnabled) {
                     val minutesBefore = alert?.minutesBefore ?: 15
-                    val actualPrayerName = AppStrings.getPrayerName(targetPrayerType, lang)
+                    val actualPrayerName = AppStrings.getPrayerName(effectivePrayerType, lang)
                     val title = if (lang.code == "ar") "تنبيه اقتراب موعد صلاة $actualPrayerName" else "Prayer Reminder: $actualPrayerName"
                     val message = if (lang.code == "ar") {
                         "يتبقى $minutesBefore دقيقة على أذان صلاة $actualPrayerName"
@@ -198,18 +204,18 @@ class AlarmReceiver : BroadcastReceiver() {
                     }
 
                     val adhanRepo = com.example.data.AdhanPreferencesRepository(context)
-                    val screenConfig = adhanRepo.getScreenConfig(targetPrayerType)
+                    val screenConfig = adhanRepo.getScreenConfig(effectivePrayerType)
 
                     val openIntent = com.example.ui.LockScreenAdhanActivity.createIntent(
                         context = context,
-                        prayer = targetPrayerType,
+                        prayer = effectivePrayerType,
                         triggerType = "ALERT",
                         alertMinutes = minutesBefore
                     )
                     val safeHash = ((alert?.id?.hashCode() ?: 0) and 0x7FFFFFFF) % 10000
                     val pendingIntent = PendingIntent.getActivity(
                         context,
-                        30000 + (safeHash * 10) + targetPrayerType.ordinal,
+                        30000 + (safeHash * 10) + effectivePrayerType.ordinal,
                         openIntent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )

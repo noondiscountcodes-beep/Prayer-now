@@ -321,6 +321,9 @@ class AppPreferences(private val context: Context) {
     // Adhan Videos for each prayer
     fun getAdhanConfig(type: PrayerType): AdhanVideoConfig {
         val keyPrefix = "adhan_${type.name.lowercase()}"
+        if (type == PrayerType.JUMUAH && !prefs.contains("${keyPrefix}_uri") && !prefs.contains("${keyPrefix}_name")) {
+            return getAdhanConfig(PrayerType.DHUHR)
+        }
         return AdhanVideoConfig(
             uriString = prefs.getString("${keyPrefix}_uri", null),
             fileName = prefs.getString("${keyPrefix}_name", null),

@@ -26,6 +26,14 @@ data class PrayerDaySchedule(
     val obligatoryPrayers: List<PrayerTimeEntry>
         get() = listOf(fajr, dhuhr, asr, maghrib, isha)
 
+    val isFriday: Boolean
+        get() {
+            val cal = Calendar.getInstance().apply {
+                set(dateYear, dateMonth - 1, dateDay)
+            }
+            return cal.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
+        }
+
     fun getCurrentPrayer(currentTimeMillis: Long): PrayerType {
         val prayers = listOf(fajr, dhuhr, asr, maghrib, isha)
         // If current time is before Fajr, current prayer is Isha of previous night
@@ -56,7 +64,7 @@ data class PrayerDaySchedule(
     fun getEntry(type: PrayerType): PrayerTimeEntry = when (type) {
         PrayerType.FAJR -> fajr
         PrayerType.SUNRISE -> sunrise
-        PrayerType.DHUHR -> dhuhr
+        PrayerType.DHUHR, PrayerType.JUMUAH -> dhuhr
         PrayerType.ASR -> asr
         PrayerType.MAGHRIB -> maghrib
         PrayerType.ISHA -> isha

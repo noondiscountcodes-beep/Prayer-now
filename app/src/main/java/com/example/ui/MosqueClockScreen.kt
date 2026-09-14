@@ -197,7 +197,7 @@ fun MosqueClockScreen(
 
                 if (!finalUri.isNullOrBlank()) {
                     activeVideoUri = finalUri
-                    activeVideoTitle = if (language.code == "ar") "دعاء ما بعد الأذان — صلاة ${AppStrings.getPrayerName(pt, language)}" else "Post-Adhan Supplication — ${AppStrings.getPrayerName(pt, language)}"
+                    activeVideoTitle = if (language.code == "ar") "دعاء ما بعد الأذان — صلاة ${AppStrings.getPrayerName(pt, language, isFriday = schedule.isFriday)}" else "Post-Adhan Supplication — ${AppStrings.getPrayerName(pt, language, isFriday = schedule.isFriday)}"
                     showVideoDialog = true
                 }
                 onVideoHandled()
@@ -333,7 +333,7 @@ fun MosqueClockScreen(
                                     color = Color.White.copy(alpha = 0.75f)
                                 )
                                 Text(
-                                    text = AppStrings.getPrayerName(nextPrayerEntry.type, language),
+                                    text = AppStrings.getPrayerName(nextPrayerEntry.type, language, isFriday = schedule.isFriday),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = PolishGold
@@ -410,7 +410,7 @@ fun MosqueClockScreen(
             ) {
                 schedule.allEntries.forEach { entry ->
                     val isNext = entry.type == nextPrayerEntry.type
-                    val prayerIcon = getPrayerIcon(entry.type)
+                    val prayerIcon = getPrayerIcon(entry.type, isFriday = schedule.isFriday)
                     val localizedTime = remember(entry.timestampMillis, timezone, isArabic, is24Hour) {
                         PrayerBannerHelper.formatPrayerTime(entry.timestampMillis, timezone, isArabic, is24Hour)
                     }
@@ -459,7 +459,7 @@ fun MosqueClockScreen(
 
                                     Column {
                                         Text(
-                                            text = AppStrings.getPrayerName(entry.type, language),
+                                            text = AppStrings.getPrayerName(entry.type, language, isFriday = schedule.isFriday),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = ProfessionalEmerald
@@ -522,7 +522,7 @@ fun MosqueClockScreen(
                                     }
 
                                     Text(
-                                        text = AppStrings.getPrayerName(entry.type, language),
+                                        text = AppStrings.getPrayerName(entry.type, language, isFriday = schedule.isFriday),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = PolishTextPrimary
@@ -650,13 +650,14 @@ fun MosqueClockScreen(
     }
 }
 
-private fun getPrayerIcon(type: PrayerType) = when (type) {
+private fun getPrayerIcon(type: PrayerType, isFriday: Boolean = false) = when (type) {
     PrayerType.FAJR -> Icons.Default.Brightness4
     PrayerType.SUNRISE -> Icons.Default.WbSunny
-    PrayerType.DHUHR -> Icons.Default.WbSunny
+    PrayerType.DHUHR -> if (isFriday) Icons.Default.Mosque else Icons.Default.WbSunny
     PrayerType.ASR -> Icons.Default.Brightness5
     PrayerType.MAGHRIB -> Icons.Default.WbTwilight
     PrayerType.ISHA -> Icons.Default.NightsStay
+    PrayerType.JUMUAH -> Icons.Default.Mosque
 }
 
 private fun formatLocalizedDigits(input: String, isArabic: Boolean): String {

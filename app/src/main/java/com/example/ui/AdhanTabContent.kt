@@ -73,7 +73,8 @@ fun AdhanTabContent(
         PrayerType.DHUHR,
         PrayerType.ASR,
         PrayerType.MAGHRIB,
-        PrayerType.ISHA
+        PrayerType.ISHA,
+        PrayerType.JUMUAH
     )
 
     Column(

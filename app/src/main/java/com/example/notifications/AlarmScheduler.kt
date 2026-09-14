@@ -44,11 +44,15 @@ object AlarmScheduler {
                 prefs = prefs
             )
 
+            val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+            val isFriday = (dayOfWeek == Calendar.FRIDAY)
+
             // 1. Schedule all upcoming Adhans for this day
             for (prayer in daySchedule.obligatoryPrayers) {
-                val audioConfig = adhanRepo.getAudioConfig(prayer.type)
-                val screenConfig = adhanRepo.getScreenConfig(prayer.type)
-                val legacyConfig = prefs.getAdhanConfig(prayer.type)
+                val effectiveType = if (prayer.type == PrayerType.DHUHR && isFriday) PrayerType.JUMUAH else prayer.type
+                val audioConfig = adhanRepo.getAudioConfig(effectiveType)
+                val screenConfig = adhanRepo.getScreenConfig(effectiveType)
+                val legacyConfig = prefs.getAdhanConfig(effectiveType)
 
                 // Adhan alarm is active if audio or screen is enabled or legacy is enabled
                 val isAdhanActive = audioConfig.isEnabled || screenConfig.autoOpenOnAdhan || legacyConfig.isEnabled
@@ -58,29 +62,31 @@ object AlarmScheduler {
                         context,
                         alarmManager,
                         prayer.timestampMillis,
-                        createPrayerAlarmIntent(context, prayer.type, dayOffset)
+                        createPrayerAlarmIntent(context, effectiveType, dayOffset)
                     )
                 }
             }
 
             // 2. Schedule custom alerts for this day
-            val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
             for (alert in activeAlerts) {
                 if (alert.daysOfWeek.contains(dayOfWeek)) {
                     val targets = if (alert.targetPrayer == "ALL") {
                         daySchedule.obligatoryPrayers
+                    } else if (alert.targetPrayer == "JUMUAH") {
+                        if (isFriday) listOf(daySchedule.dhuhr) else emptyList()
                     } else {
                         daySchedule.obligatoryPrayers.filter { it.type.name == alert.targetPrayer }
                     }
 
                     for (target in targets) {
+                        val effectiveTargetType = if (target.type == PrayerType.DHUHR && isFriday) PrayerType.JUMUAH else target.type
                         val triggerTime = target.timestampMillis - (alert.minutesBefore * 60 * 1000L)
                         if (triggerTime > now) {
                             scheduleExact(
                                 context,
                                 alarmManager,
                                 triggerTime,
-                                createCustomAlertIntent(context, alert.id, target.type, dayOffset)
+                                createCustomAlertIntent(context, alert.id, effectiveTargetType, dayOffset)
                             )
                         }
                     }

@@ -268,7 +268,8 @@ fun AdhanFullScreenView(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Top Section: Force LTR row so Controls are on the physical LEFT and Adhan title is on physical RIGHT
-            val prayerName = AppStrings.getPrayerName(prayer, language)
+            val isFriday = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) == java.util.Calendar.FRIDAY
+            val prayerName = AppStrings.getPrayerName(prayer, language, isFriday = isFriday)
             val isAdhan = (triggerType != "ALERT" && triggerType != "SUHOOR" && triggerType != "IFTAR_CANNON")
 
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {

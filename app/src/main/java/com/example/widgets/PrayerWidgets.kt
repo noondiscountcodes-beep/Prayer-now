@@ -36,7 +36,8 @@ class NextPrayerWidget : AppWidgetProvider() {
         val remainingSec = schedule.getRemainingSecondsToNext(now)
         val showSeconds = prefs.isShowSecondsEnabled()
         val remainingDigits = PrayerBannerHelper.formatCountdown(remainingSec, showSeconds, lang.code == "ar")
-        val nextName = AppStrings.getPrayerName(next.type, lang)
+        val isFriday = cal.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
+        val nextName = AppStrings.getPrayerName(next.type, lang, isFriday = isFriday)
 
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(

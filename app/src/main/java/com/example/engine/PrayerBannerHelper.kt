@@ -95,10 +95,11 @@ object PrayerBannerHelper {
         )
 
         val now = System.currentTimeMillis()
+        val isFriday = cal.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
         val currentType = schedule.getCurrentPrayer(now)
         val nextPrayer = schedule.getNextPrayer(now)
         val nextType = nextPrayer.type
-        val nextPrayerName = AppStrings.getPrayerName(nextType, lang)
+        val nextPrayerName = AppStrings.getPrayerName(nextType, lang, isFriday = isFriday)
 
         // City & Header
         val cityName = prefs.getCityName()
@@ -133,7 +134,7 @@ object PrayerBannerHelper {
         )
 
         for (col in prayerColumns) {
-            views.setTextViewText(col.nameId, AppStrings.getPrayerName(col.prayerType, lang))
+            views.setTextViewText(col.nameId, AppStrings.getPrayerName(col.prayerType, lang, isFriday = isFriday))
             views.setTextViewText(col.timeId, formatPrayerTime(col.timeMillis, tz, isArabic, is24h))
 
             if (col.prayerType == currentType) {
@@ -203,10 +204,11 @@ object PrayerBannerHelper {
         )
 
         val now = System.currentTimeMillis()
+        val isFriday = cal.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
         val currentType = schedule.getCurrentPrayer(now)
         val nextPrayer = schedule.getNextPrayer(now)
         val nextType = nextPrayer.type
-        val nextPrayerName = AppStrings.getPrayerName(nextType, lang)
+        val nextPrayerName = AppStrings.getPrayerName(nextType, lang, isFriday = isFriday)
 
         views.setTextViewText(R.id.notif_city_name, prefs.getCityName())
 
@@ -238,7 +240,7 @@ object PrayerBannerHelper {
         )
 
         for (col in columns) {
-            views.setTextViewText(col.nameId, AppStrings.getPrayerName(col.prayerType, lang))
+            views.setTextViewText(col.nameId, AppStrings.getPrayerName(col.prayerType, lang, isFriday = isFriday))
             views.setTextViewText(col.timeId, formatPrayerTime(col.timeMillis, tz, isArabic, is24h))
 
             if (col.prayerType == currentType) {
@@ -305,9 +307,10 @@ object PrayerBannerHelper {
         )
 
         val now = System.currentTimeMillis()
+        val isFriday = cal.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY
         val nextPrayer = schedule.getNextPrayer(now)
         val nextType = nextPrayer.type
-        val nextPrayerName = AppStrings.getPrayerName(nextType, lang)
+        val nextPrayerName = AppStrings.getPrayerName(nextType, lang, isFriday = isFriday)
 
         val showSeconds = prefs.isShowSecondsEnabled()
         val remainingSec = schedule.getRemainingSecondsToNext(now)
