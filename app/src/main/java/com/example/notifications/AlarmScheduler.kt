@@ -21,6 +21,9 @@ object AlarmScheduler {
     private const val TAG = "AlarmScheduler"
 
     fun scheduleAll(context: Context) {
+        // Schedule Salawat on the Prophet reminder and its persistent notification countdown
+        SalawatAlarmScheduler.scheduleNext(context)
+
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val prefs = AppPreferences(context)
         val adhanRepo = AdhanPreferencesRepository(context)

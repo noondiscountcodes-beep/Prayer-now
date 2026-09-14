@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import java.util.Calendar
 
 data class SalawatConfig(
-    val isEnabled: Boolean = false,
+    val isEnabled: Boolean = true,
     val intervalMinutes: Int = 30,
     val isAllDay: Boolean = true,
     val startHour: Int = 8,
@@ -44,7 +44,7 @@ class SalawatPreferencesRepository(context: Context) {
 
     fun getConfig(): SalawatConfig {
         return SalawatConfig(
-            isEnabled = prefs.getBoolean(KEY_ENABLED, false),
+            isEnabled = prefs.getBoolean(KEY_ENABLED, true),
             intervalMinutes = prefs.getInt(KEY_INTERVAL, 30).coerceAtLeast(5),
             isAllDay = prefs.getBoolean(KEY_ALL_DAY, true),
             startHour = prefs.getInt(KEY_START_HOUR, 8),

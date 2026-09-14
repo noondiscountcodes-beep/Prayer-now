@@ -47,6 +47,16 @@ class PrayerNotificationService : Service() {
             startForeground(PrayerNotificationHelper.NOTIFICATION_ID_PERSISTENT, notification)
         }
 
+        // Update Salawat persistent notification if enabled
+        val salawatRepo = com.example.data.SalawatPreferencesRepository(this)
+        val salConfig = salawatRepo.getConfig()
+        if (salConfig.isEnabled && salConfig.showPersistentNotification) {
+            val nextTime = salawatRepo.getNextScheduledTriggerTime().let {
+                if (it > System.currentTimeMillis()) it else salawatRepo.calculateNextTriggerTime(salConfig)
+            }
+            PrayerNotificationHelper.updateSalawatPersistentNotification(this, nextTime)
+        }
+
         startPeriodicUpdate()
 
         return START_STICKY
@@ -69,6 +79,16 @@ class PrayerNotificationService : Service() {
                     break
                 }
                 com.example.widgets.WidgetSyncHelper.syncAll(this@PrayerNotificationService)
+
+                // Sync Salawat notification countdown in notification bar
+                val salRepo = com.example.data.SalawatPreferencesRepository(this@PrayerNotificationService)
+                val sConf = salRepo.getConfig()
+                if (sConf.isEnabled && sConf.showPersistentNotification) {
+                    val nTime = salRepo.getNextScheduledTriggerTime().let {
+                        if (it > System.currentTimeMillis()) it else salRepo.calculateNextTriggerTime(sConf)
+                    }
+                    PrayerNotificationHelper.updateSalawatPersistentNotification(this@PrayerNotificationService, nTime)
+                }
             }
         }
     }

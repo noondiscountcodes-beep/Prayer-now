@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notif_salawat_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_salawat_notif_banner"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <!-- Header: Title & Prophet's name -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="6dp">
+
+        <TextView
+            android:id="@+id/notif_salawat_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:text="ﷺ الصلاة على النبي"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notif_salawat_hadith_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:text="تذكير دائم"
+            android:textColor="#D4AF37"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <!-- Center Box: Countdown Chronometer -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_salawat_countdown_box"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="10dp">
+
+        <TextView
+            android:id="@+id/notif_salawat_countdown_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="الوقت المتبقي للتذكير القادم:"
+            android:textColor="#94A3B8"
+            android:textSize="12sp" />
+
+        <!-- Live Native Chronometer Counting Down -->
+        <Chronometer
+            android:id="@+id/notif_salawat_chronometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#2DD4BF"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notif_salawat_target_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="الموعد: 04:30 م"
+            android:textColor="#D4AF37"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- Footer: Audio info & Quick action -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:id="@+id/notif_salawat_audio_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:layout_toStartOf="@+id/notif_salawat_btn_pray"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingEnd="8dp"
+            android:text="الصوت: عشوائي من ملف الـ ZIP"
+            android:textColor="#E2E8F0"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/notif_salawat_btn_pray"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_salawat_button_gold"
+            android:paddingStart="12dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="6dp"
+            android:text="صلِّ الآن ﷺ"
+            android:textColor="#051D16"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+</LinearLayout>

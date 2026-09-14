@@ -7,12 +7,16 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.data.AppPreferences
 import com.example.engine.PrayerBannerHelper
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 object PrayerNotificationHelper {
 
@@ -172,21 +176,76 @@ object PrayerNotificationHelper {
 
         val salawatRepo = com.example.data.SalawatPreferencesRepository(context)
         val config = salawatRepo.getConfig()
+        val effectiveTrigger = if (nextTriggerTime > System.currentTimeMillis()) {
+            nextTriggerTime
+        } else {
+            salawatRepo.calculateNextTriggerTime(config)
+        }
+
+        val now = System.currentTimeMillis()
+        val diffMillis = (effectiveTrigger - now).coerceAtLeast(0L)
+        val remainingSec = diffMillis / 1000L
+        val hours = remainingSec / 3600
+        val mins = (remainingSec % 3600) / 60
+        val secs = remainingSec % 60
+        val countdownStr = if (hours > 0) {
+            String.format(Locale.US, "%02d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.US, "%02d:%02d", mins, secs)
+        }
+
+        val cal = Calendar.getInstance().apply { timeInMillis = effectiveTrigger }
+        val timeFormat = SimpleDateFormat("hh:mm a", if (isArabic) Locale("ar") else Locale.US)
+        val targetClockTime = timeFormat.format(cal.time)
+
         val audioDesc = if (config.audioSelectionMode == "SPECIFIC" && !config.selectedAudioFileName.isNullOrEmpty()) {
             if (isArabic) "الصوت: ${config.selectedAudioFileName}" else "Audio: ${config.selectedAudioFileName}"
         } else {
             if (isArabic) "الصوت: عشوائي من ملف الـ ZIP" else "Audio: Random from ZIP"
         }
 
+        val chronometerBase = SystemClock.elapsedRealtime() + diffMillis
+
+        val remoteViewsExpanded = RemoteViews(context.packageName, R.layout.notification_salawat_persistent).apply {
+            setTextViewText(R.id.notif_salawat_title, if (isArabic) "ﷺ الصلاة على النبي" else "ﷺ Salawat on Prophet Muhammad")
+            setTextViewText(R.id.notif_salawat_hadith_badge, if (isArabic) "تذكير دائم" else "Ongoing")
+            setTextViewText(R.id.notif_salawat_countdown_label, if (isArabic) "الوقت المتبقي للتذكير القادم:" else "Remaining until next reminder:")
+            setTextViewText(R.id.notif_salawat_target_time, if (isArabic) "الموعد القادم: $targetClockTime" else "Next alert: $targetClockTime")
+            setTextViewText(R.id.notif_salawat_audio_info, audioDesc)
+            setTextViewText(R.id.notif_salawat_btn_pray, if (isArabic) "صلِّ الآن ﷺ" else "Pray Now ﷺ")
+
+            setChronometer(R.id.notif_salawat_chronometer, chronometerBase, "%s", true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                setChronometerCountDown(R.id.notif_salawat_chronometer, true)
+            }
+            setOnClickPendingIntent(R.id.notif_salawat_root, openPendingIntent)
+            setOnClickPendingIntent(R.id.notif_salawat_btn_pray, triggerNowPendingIntent)
+        }
+
+        val remoteViewsCollapsed = RemoteViews(context.packageName, R.layout.notification_salawat_persistent_collapsed).apply {
+            setTextViewText(R.id.notif_salawat_collapsed_title, if (isArabic) "ﷺ الصلاة على النبي" else "ﷺ Salawat")
+            setTextViewText(R.id.notif_salawat_collapsed_time, if (isArabic) "عند $targetClockTime" else "At $targetClockTime")
+            setTextViewText(R.id.notif_salawat_collapsed_label, if (isArabic) "يتبقى للتذكير القادم" else "Remaining")
+
+            setChronometer(R.id.notif_salawat_collapsed_chronometer, chronometerBase, "%s", true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                setChronometerCountDown(R.id.notif_salawat_collapsed_chronometer, true)
+            }
+            setOnClickPendingIntent(R.id.notif_salawat_collapsed_root, openPendingIntent)
+        }
+
         val title = if (isArabic) "ﷺ الصلاة على النبي" else "ﷺ Salawat on Prophet Muhammad"
-        val content = if (isArabic) "الوقت المتبقي حتى التذكير القادم:" else "Next reminder in:"
+        val content = if (isArabic) "الوقت المتبقي: $countdownStr (الموعد: $targetClockTime)" else "Next reminder in $countdownStr (at $targetClockTime)"
 
         val builder = NotificationCompat.Builder(context, CHANNEL_SALAWAT_PERSISTENT)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setCustomContentView(remoteViewsCollapsed)
+            .setCustomBigContentView(remoteViewsExpanded)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setContentTitle(title)
             .setContentText(content)
             .setSubText(if (isArabic) "تذكير مستمر" else "Ongoing Reminder")
-            .setWhen(nextTriggerTime)
+            .setWhen(effectiveTrigger)
             .setShowWhen(true)
             .setUsesChronometer(true)
             .setOngoing(true)
@@ -197,14 +256,6 @@ object PrayerNotificationHelper {
                 android.R.drawable.ic_media_play,
                 if (isArabic) "صلِّ الآن ﷺ" else "Pray Now ﷺ",
                 triggerNowPendingIntent
-            )
-            .setStyle(
-                NotificationCompat.BigTextStyle()
-                    .bigText(
-                        (if (isArabic) "«مَنْ صَلَّى عَلَيَّ صَلَاةً صَلَّى اللهُ عَلَيْهِ بِهَا عَشْرًا»"
-                         else "\"Whoever sends blessings upon me once, Allah sends blessings upon him tenfold.\"")
-                        + "\n" + audioDesc
-                    )
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {

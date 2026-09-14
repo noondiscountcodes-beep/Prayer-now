@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notif_salawat_collapsed_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_salawat_notif_banner"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="8dp">
+
+    <!-- Live Native Chronometer Counting Down in Collapsed View -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="start|center_vertical"
+        android:orientation="vertical">
+
+        <Chronometer
+            android:id="@+id/notif_salawat_collapsed_chronometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#2DD4BF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notif_salawat_collapsed_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="يتبقى للتذكير القادم"
+            android:textColor="#94A3B8"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="end|center_vertical"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/notif_salawat_collapsed_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ﷺ الصلاة على النبي"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notif_salawat_collapsed_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="عند 04:30 م"
+            android:textColor="#D4AF37"
+            android:textSize="11sp" />
+    </LinearLayout>
+</LinearLayout>

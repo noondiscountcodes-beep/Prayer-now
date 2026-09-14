@@ -144,4 +144,13 @@ class SalawatTabUnitTest {
         assertEquals(0, emptyList.size)
         assertNull(SalawatZipManager.getRandomAudio(context))
     }
+
+    @Test
+    fun testSalawatPersistentNotificationBuilding() {
+        val nextTime = System.currentTimeMillis() + 15 * 60 * 1000L
+        val notification = com.example.notifications.PrayerNotificationHelper.buildSalawatPersistentNotification(context, nextTime)
+        assertNotNull(notification)
+        assertNotNull(notification.contentView)
+        assertNotNull(notification.bigContentView)
+    }
 }

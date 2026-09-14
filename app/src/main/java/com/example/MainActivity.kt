@@ -91,8 +91,11 @@ class MainActivity : ComponentActivity() {
             val notifPermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { isGranted ->
-                if (isGranted && prefs.isPersistentNotificationEnabled()) {
-                    PrayerNotificationService.start(this)
+                if (isGranted) {
+                    if (prefs.isPersistentNotificationEnabled()) {
+                        PrayerNotificationService.start(this)
+                    }
+                    com.example.notifications.SalawatAlarmScheduler.scheduleNext(this)
                 }
             }
 

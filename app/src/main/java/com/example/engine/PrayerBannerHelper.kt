@@ -1,13 +1,17 @@
 package com.example.engine
 
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
+import com.example.MainActivity
 import com.example.R
 import com.example.data.AppPreferences
 import com.example.localization.AppLanguage
 import com.example.localization.AppStrings
+import com.example.notifications.AlarmReceiver
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -288,6 +292,61 @@ object PrayerBannerHelper {
         val rawGreg = gregFormat.format(cal.time)
         val gregText = if (isArabic) toArabicDigits(rawGreg) else rawGreg
         views.setTextViewText(R.id.notif_gregorian_date, gregText)
+
+        // Salawat reminder banner countdown in notification bar
+        try {
+            val salawatRepo = com.example.data.SalawatPreferencesRepository(context)
+            val salConfig = salawatRepo.getConfig()
+            if (salConfig.isEnabled) {
+                var nextTrigger = salawatRepo.getNextScheduledTriggerTime()
+                if (nextTrigger <= now) {
+                    nextTrigger = salawatRepo.calculateNextTriggerTime(salConfig)
+                }
+                val salRemainingSec = ((nextTrigger - now) / 1000L).coerceAtLeast(0L)
+                val salHours = salRemainingSec / 3600
+                val salMins = (salRemainingSec % 3600) / 60
+                val salSecs = salRemainingSec % 60
+                val salCountdownStr = if (salHours > 0) {
+                    String.format(Locale.US, "%02d:%02d:%02d", salHours, salMins, salSecs)
+                } else {
+                    String.format(Locale.US, "%02d:%02d", salMins, salSecs)
+                }
+                val formattedStr = if (isArabic) toArabicDigits(salCountdownStr) else salCountdownStr
+                val bannerCountdownText = if (isArabic) "يتبقى $formattedStr" else "$formattedStr remaining"
+
+                views.setTextViewText(R.id.notif_salawat_banner_title, if (isArabic) "ﷺ الصلاة على النبي:" else "ﷺ Salawat:")
+                views.setTextViewText(R.id.notif_salawat_banner_countdown, bannerCountdownText)
+                views.setTextViewText(R.id.notif_salawat_banner_btn, if (isArabic) "صلِّ الآن ﷺ" else "Pray Now ﷺ")
+                views.setViewVisibility(R.id.notif_salawat_banner_row, View.VISIBLE)
+
+                val openSalawatIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("OPEN_TAB", "SALAWAT")
+                }
+                val openSalawatPendingIntent = PendingIntent.getActivity(
+                    context,
+                    8812,
+                    openSalawatIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.notif_salawat_banner_row, openSalawatPendingIntent)
+
+                val prayNowIntent = Intent(context, AlarmReceiver::class.java).apply {
+                    action = AlarmReceiver.ACTION_SALAWAT_REMINDER
+                }
+                val prayNowPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    8813,
+                    prayNowIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.notif_salawat_banner_btn, prayNowPendingIntent)
+            } else {
+                views.setViewVisibility(R.id.notif_salawat_banner_row, View.GONE)
+            }
+        } catch (e: Exception) {
+            views.setViewVisibility(R.id.notif_salawat_banner_row, View.GONE)
+        }
     }
 
     /**
