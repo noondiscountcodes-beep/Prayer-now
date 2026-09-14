@@ -159,6 +159,7 @@ class AdhanPreferencesRepository(context: Context) {
         val autoSuhoor = prefs.getBoolean("screen_${p}_auto_suhoor", true)
         val autoAlerts = prefs.getBoolean("screen_${p}_auto_alerts", true)
         val autoIftarCannon = prefs.getBoolean("screen_${p}_auto_iftar_cannon", true)
+        val autoCloseAlert = prefs.getBoolean("screen_${p}_auto_close_alert", true)
 
         return AdhanScreenConfig(
             displayMode = mode,
@@ -172,7 +173,8 @@ class AdhanPreferencesRepository(context: Context) {
             autoOpenOnAdhan = autoAdhan,
             autoOpenOnSuhoor = autoSuhoor,
             autoOpenOnAlerts = autoAlerts,
-            autoOpenOnIftarCannon = autoIftarCannon
+            autoOpenOnIftarCannon = autoIftarCannon,
+            autoCloseOnAlertFinish = autoCloseAlert
         )
     }
 
@@ -191,6 +193,7 @@ class AdhanPreferencesRepository(context: Context) {
             .putBoolean("screen_${p}_auto_suhoor", config.autoOpenOnSuhoor)
             .putBoolean("screen_${p}_auto_alerts", config.autoOpenOnAlerts)
             .putBoolean("screen_${p}_auto_iftar_cannon", config.autoOpenOnIftarCannon)
+            .putBoolean("screen_${p}_auto_close_alert", config.autoCloseOnAlertFinish)
             .apply()
         notifyUpdate()
     }

@@ -24,6 +24,12 @@ object MediaHelper {
     private const val TAG = "MediaHelper"
     private var activePlayer: MediaPlayer? = null
 
+    private val _isAudioPlaying = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isAudioPlaying: kotlinx.coroutines.flow.StateFlow<Boolean> = _isAudioPlaying
+
+    private val _audioCompletionEvents = kotlinx.coroutines.flow.MutableSharedFlow<Long>(extraBufferCapacity = 1)
+    val audioCompletionEvents: kotlinx.coroutines.flow.SharedFlow<Long> = _audioCompletionEvents
+
     fun inspectMediaUri(context: Context, uri: Uri, isExpectedVideo: Boolean = false): MediaMetadataResult {
         var displayName = "media_file"
         var sizeBytes = 0L
@@ -226,9 +232,13 @@ object MediaHelper {
                 } else {
                     setDataSource(context, uri)
                 }
-                setOnPreparedListener { start() }
+                setOnPreparedListener {
+                    start()
+                    _isAudioPlaying.value = true
+                }
                 setOnCompletionListener {
                     stopAudioPreview()
+                    _audioCompletionEvents.tryEmit(System.currentTimeMillis())
                     onCompletion?.invoke()
                 }
                 setOnErrorListener { _, _, _ ->
@@ -251,16 +261,22 @@ object MediaHelper {
             val toneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
             val player = MediaPlayer.create(context, toneUri)
             if (player != null) {
+                _isAudioPlaying.value = true
                 player.setOnCompletionListener {
                     stopAudioPreview()
+                    _audioCompletionEvents.tryEmit(System.currentTimeMillis())
                     onCompletion?.invoke()
                 }
                 player.start()
                 activePlayer = player
             } else {
+                _isAudioPlaying.value = false
+                _audioCompletionEvents.tryEmit(System.currentTimeMillis())
                 onCompletion?.invoke()
             }
         } catch (e: Exception) {
+            _isAudioPlaying.value = false
+            _audioCompletionEvents.tryEmit(System.currentTimeMillis())
             onCompletion?.invoke()
         }
     }
@@ -273,6 +289,7 @@ object MediaHelper {
             // ignore
         } finally {
             activePlayer = null
+            _isAudioPlaying.value = false
         }
     }
 

@@ -1476,6 +1476,15 @@ private fun SectionAdhanScreen(
                     }
                 )
 
+                ScreenElementToggleRow(
+                    title = if (language.code == "ar") "إغلاق الشاشة تلقائياً فور انتهاء التنبيه قبل الأذان" else "Auto-close screen immediately after pre-adhan alert finishes",
+                    checked = screenConfig.autoCloseOnAlertFinish,
+                    onCheckedChange = {
+                        screenConfig = screenConfig.copy(autoCloseOnAlertFinish = it)
+                        repo.setScreenConfig(targetPrayer, screenConfig)
+                    }
+                )
+
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedButton(

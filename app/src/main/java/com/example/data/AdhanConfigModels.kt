@@ -44,5 +44,6 @@ data class AdhanScreenConfig(
     val autoOpenOnAdhan: Boolean = true,
     val autoOpenOnSuhoor: Boolean = true,
     val autoOpenOnAlerts: Boolean = true,
-    val autoOpenOnIftarCannon: Boolean = true
+    val autoOpenOnIftarCannon: Boolean = true,
+    val autoCloseOnAlertFinish: Boolean = true
 )

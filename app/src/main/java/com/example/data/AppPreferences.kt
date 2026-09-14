@@ -355,4 +355,13 @@ class AppPreferences(private val context: Context) {
             .apply()
         notifyChanged()
     }
+
+    // Auto close alert screen when alert tone finishes
+    fun isAutoCloseScreenOnAlertFinish(): Boolean =
+        prefs.getBoolean("auto_close_screen_on_alert_finish", true)
+
+    fun setAutoCloseScreenOnAlertFinish(enabled: Boolean) {
+        prefs.edit().putBoolean("auto_close_screen_on_alert_finish", enabled).apply()
+        notifyChanged()
+    }
 }

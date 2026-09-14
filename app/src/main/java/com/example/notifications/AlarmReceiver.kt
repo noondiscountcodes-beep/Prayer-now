@@ -233,7 +233,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     // Only auto-open if explicitly configured by the user
                     if (screenConfig.autoOpenOnAlerts) {
-                        acquireWakeLock(context, "MosqueClock:AlertScreenWake", 15_000L)
+                        acquireAlertWakeLock(context, "MosqueClock:AlertScreenWake", 30_000L)
                         try {
                             context.startActivity(openIntent)
                         } catch (e: Exception) {
@@ -300,7 +300,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 // Wake screen and automatically open Suhoor Screen only if configured
                 if (screenConfig.autoOpenOnSuhoor) {
-                    acquireWakeLock(context, "MosqueClock:SuhoorScreenWake", 15_000L)
+                    acquireAlertWakeLock(context, "MosqueClock:SuhoorScreenWake", 30_000L)
                     try {
                         context.startActivity(openIntent)
                     } catch (e: Exception) {
@@ -362,7 +362,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 // Wake screen and automatically open Iftar Cannon Screen only if configured
                 if (screenConfig.autoOpenOnIftarCannon) {
-                    acquireWakeLock(context, "MosqueClock:IftarCannonScreenWake", 15_000L)
+                    acquireAlertWakeLock(context, "MosqueClock:IftarCannonScreenWake", 30_000L)
                     try {
                         context.startActivity(openIntent)
                     } catch (e: Exception) {
@@ -395,5 +395,35 @@ class AlarmReceiver : BroadcastReceiver() {
 
         const val EXTRA_PRAYER_NAME = "EXTRA_PRAYER_NAME"
         const val EXTRA_ALERT_ID = "EXTRA_ALERT_ID"
+
+        private var alertWakeLock: PowerManager.WakeLock? = null
+
+        fun acquireAlertWakeLock(context: Context, tag: String, timeoutMs: Long = 15_000L) {
+            try {
+                releaseAlertWakeLock()
+                val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                alertWakeLock = powerManager?.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    tag
+                )?.apply {
+                    setReferenceCounted(false)
+                    acquire(timeoutMs)
+                }
+            } catch (e: Exception) {
+                Log.e("AlarmReceiver", "Failed to acquire alert wake lock", e)
+            }
+        }
+
+        fun releaseAlertWakeLock() {
+            try {
+                if (alertWakeLock?.isHeld == true) {
+                    alertWakeLock?.release()
+                }
+            } catch (e: Exception) {
+                // ignore
+            } finally {
+                alertWakeLock = null
+            }
+        }
     }
 }

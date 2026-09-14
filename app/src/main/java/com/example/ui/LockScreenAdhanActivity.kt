@@ -108,8 +108,15 @@ class LockScreenAdhanActivity : ComponentActivity() {
     private fun closeLockScreen() {
         AdhanSequencePlayer.stopAll()
         MediaHelper.stopAudioPreview()
+        com.example.notifications.AlarmReceiver.releaseAlertWakeLock()
         try {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setTurnScreenOn(false)
+            }
+            val lp = window.attributes
+            lp.screenBrightness = 0.0f
+            window.attributes = lp
         } catch (_: Exception) {}
         finishAndRemoveTask()
     }
@@ -117,6 +124,7 @@ class LockScreenAdhanActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         MediaHelper.stopAudioPreview()
+        com.example.notifications.AlarmReceiver.releaseAlertWakeLock()
         try {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } catch (_: Exception) {}

@@ -1042,6 +1042,62 @@ private fun AlertsTab(prefs: AppPreferences, language: AppLanguage) {
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Setting Card: Auto-close screen immediately when pre-adhan alert finishes
+        var autoCloseAlertScreen by remember { mutableStateOf(prefs.isAutoCloseScreenOnAlertFinish()) }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MosqueDarkSurface),
+            shape = RoundedCornerShape(12.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MosqueCardBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PowerSettingsNew,
+                        contentDescription = null,
+                        tint = IslamicGoldPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Column {
+                        Text(
+                            text = if (language.code == "ar") "إغلاق الشاشة فور انتهاء التنبيه" else "Auto-close screen when alert ends",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (language.code == "ar") "يغلق الشاشة وقفلها تلقائياً بمجرد انتهاء صوت تنبيهات ما قبل الأذان لتوفير البطارية" else "Closes and turns off screen as soon as the pre-adhan alert audio ends",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+                Switch(
+                    checked = autoCloseAlertScreen,
+                    onCheckedChange = {
+                        autoCloseAlertScreen = it
+                        prefs.setAutoCloseScreenOnAlertFinish(it)
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = IslamicGoldPrimary
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         if (alertsList.isEmpty()) {
             Box(
                 modifier = Modifier

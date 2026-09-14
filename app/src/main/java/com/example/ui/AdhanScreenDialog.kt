@@ -43,6 +43,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import coil.compose.rememberAsyncImagePainter
 import com.example.data.AdhanPreferencesRepository
+import com.example.media.MediaHelper
 import com.example.data.AdhanScreenDisplayMode
 import com.example.data.AppPreferences
 import com.example.engine.HijriCalendarHelper
@@ -137,32 +138,63 @@ fun AdhanFullScreenView(
                 delay(400)
                 onOpenDuaVideo?.invoke(targetUri)
             } else {
-                // Adhan finished and no Dua video to play: gracefully auto-dismiss after 10 seconds so the screen doesn't stay stuck forever
-                delay(10_000L)
+                // Adhan finished and no Dua video to play: gracefully auto-dismiss after 1 second so screen doesn't stay stuck
+                delay(1000L)
                 onDismiss()
             }
         }
     }
 
-    // Safety timeout for alerts / adhan screens: if left unattended, dismiss gracefully without cutting off active Adhan recitation
-    LaunchedEffect(triggerType, playbackState.isPlaying, playbackState.stage) {
-        when (triggerType) {
-            "ALERT" -> {
-                delay(60_000L) // 1 minute max for pre-prayer alert
-                onDismiss()
-            }
-            "SUHOOR" -> {
-                delay(120_000L) // 2 minutes max for suhoor alert
-                onDismiss()
-            }
-            else -> {
-                // For Adhan: NEVER interrupt while Adhan or Alert audio is actively playing!
-                // The Adhan must be allowed to complete fully to the end.
-                // Once finished, LaunchedEffect(playbackState.stage) gracefully handles launching Dua video or auto-dismissing.
-                if (!playbackState.isPlaying && playbackState.stage == AdhanPlaybackStage.IDLE) {
-                    delay(600_000L) // 10 minutes safety fallback only if idle
-                    onDismiss()
+    // Auto-dismiss logic for pre-adhan alerts and suhoor:
+    // As soon as the alert audio finishes playing, gracefully and immediately dismiss the screen!
+    val autoCloseOnAlert = remember { prefs.isAutoCloseScreenOnAlertFinish() && screenConfig.autoCloseOnAlertFinish }
+
+    LaunchedEffect(triggerType, autoCloseOnAlert) {
+        if (triggerType == "ALERT" || triggerType == "SUHOOR") {
+            if (autoCloseOnAlert) {
+                val startTime = System.currentTimeMillis()
+                val minDisplayTimeMs = 3500L // Minimum 3.5s so user has time to read the alert notification
+                val maxSafetyTimeoutMs = if (triggerType == "SUHOOR") 120_000L else 60_000L
+
+                // Check if audio starts within 1200ms
+                var audioStarted = MediaHelper.isAudioPlaying.value
+                val checkStartDeadline = System.currentTimeMillis() + 1200L
+                while (!audioStarted && System.currentTimeMillis() < checkStartDeadline) {
+                    if (MediaHelper.isAudioPlaying.value) {
+                        audioStarted = true
+                        break
+                    }
+                    delay(100)
                 }
+
+                if (audioStarted) {
+                    // Wait actively while the alert audio tone is actively playing
+                    while (MediaHelper.isAudioPlaying.value && (System.currentTimeMillis() - startTime) < maxSafetyTimeoutMs) {
+                        delay(150)
+                    }
+                }
+
+                // Alert audio has finished!
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed < minDisplayTimeMs) {
+                    delay(minDisplayTimeMs - elapsed)
+                } else {
+                    delay(400)
+                }
+
+                // Close screen immediately upon alert completion
+                onDismiss()
+            } else {
+                delay(60_000L) // 1 minute fallback if disabled
+                onDismiss()
+            }
+        } else {
+            // For Adhan: NEVER interrupt while Adhan or Alert audio is actively playing!
+            // The Adhan must be allowed to complete fully to the end.
+            // Once finished, LaunchedEffect(playbackState.stage) gracefully handles launching Dua video or auto-dismissing.
+            if (!playbackState.isPlaying && playbackState.stage == AdhanPlaybackStage.IDLE) {
+                delay(600_000L) // 10 minutes safety fallback only if idle
+                onDismiss()
             }
         }
     }
@@ -251,7 +283,10 @@ fun AdhanFullScreenView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { AdhanSequencePlayer.stopAll() },
+                            onClick = {
+                                AdhanSequencePlayer.stopAll()
+                                MediaHelper.stopAudioPreview()
+                            },
                             modifier = Modifier
                                 .size(42.dp)
                                 .background(Color.Black.copy(alpha = 0.55f), CircleShape)
@@ -263,6 +298,7 @@ fun AdhanFullScreenView(
                         IconButton(
                             onClick = {
                                 AdhanSequencePlayer.stopAll()
+                                MediaHelper.stopAudioPreview()
                                 onDismiss()
                             },
                             modifier = Modifier
