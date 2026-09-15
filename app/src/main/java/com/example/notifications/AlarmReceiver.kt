@@ -397,8 +397,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 acquireAlertWakeLock(context, "MosqueClock:SalawatReminderWake", 15_000L)
 
-                // Pick effective audio from zip (user custom choice or random)
-                val audioFile = com.example.media.SalawatZipManager.getEffectiveAudio(context, config)
+                // Pick effective audio from zip (sequential by order, random, or user choice)
+                val audioFile = com.example.media.SalawatZipManager.getEffectiveAudio(context, config, advanceSequence = true)
                 val audioUri = if (audioFile != null && audioFile.exists()) {
                     android.net.Uri.fromFile(audioFile).toString()
                 } else {

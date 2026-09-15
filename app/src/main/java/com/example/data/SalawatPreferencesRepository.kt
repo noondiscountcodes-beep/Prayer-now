@@ -15,7 +15,7 @@ data class SalawatConfig(
     val isFridayOnly: Boolean = false,
     val vibrate: Boolean = true,
     val lastTriggerMillis: Long = 0L,
-    val audioSelectionMode: String = "RANDOM", // "RANDOM" or "SPECIFIC"
+    val audioSelectionMode: String = "SEQUENTIAL", // "SEQUENTIAL", "RANDOM", or "SPECIFIC"
     val selectedAudioFileName: String? = null,
     val showPersistentNotification: Boolean = true,
     val nextScheduledTriggerMillis: Long = 0L
@@ -40,6 +40,7 @@ class SalawatPreferencesRepository(context: Context) {
         private const val KEY_SELECTED_AUDIO_NAME = "salawat_selected_audio_name"
         private const val KEY_SHOW_PERSISTENT_NOTIF = "salawat_show_persistent_notif"
         private const val KEY_NEXT_SCHEDULED_TRIGGER = "salawat_next_scheduled_trigger"
+        private const val KEY_LAST_AUDIO_INDEX = "salawat_last_audio_index"
     }
 
     fun getConfig(): SalawatConfig {
@@ -54,7 +55,7 @@ class SalawatPreferencesRepository(context: Context) {
             isFridayOnly = prefs.getBoolean(KEY_FRIDAY_ONLY, false),
             vibrate = prefs.getBoolean(KEY_VIBRATE, true),
             lastTriggerMillis = prefs.getLong(KEY_LAST_TRIGGER, 0L),
-            audioSelectionMode = prefs.getString(KEY_AUDIO_SELECTION_MODE, "RANDOM") ?: "RANDOM",
+            audioSelectionMode = prefs.getString(KEY_AUDIO_SELECTION_MODE, "SEQUENTIAL") ?: "SEQUENTIAL",
             selectedAudioFileName = prefs.getString(KEY_SELECTED_AUDIO_NAME, null),
             showPersistentNotification = prefs.getBoolean(KEY_SHOW_PERSISTENT_NOTIF, true),
             nextScheduledTriggerMillis = prefs.getLong(KEY_NEXT_SCHEDULED_TRIGGER, 0L)
@@ -90,6 +91,18 @@ class SalawatPreferencesRepository(context: Context) {
 
     fun setLastTriggerTime(timeMillis: Long) {
         prefs.edit().putLong(KEY_LAST_TRIGGER, timeMillis).apply()
+    }
+
+    fun getLastAudioIndex(): Int {
+        return prefs.getInt(KEY_LAST_AUDIO_INDEX, -1)
+    }
+
+    fun setLastAudioIndex(index: Int) {
+        prefs.edit().putInt(KEY_LAST_AUDIO_INDEX, index).apply()
+    }
+
+    fun resetLastAudioIndex() {
+        setLastAudioIndex(-1)
     }
 
     fun calculateNextTriggerTime(config: SalawatConfig, fromMillis: Long = System.currentTimeMillis()): Long {

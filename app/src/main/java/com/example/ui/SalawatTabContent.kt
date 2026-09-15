@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -59,10 +60,20 @@ fun SalawatTabContent(
 
     var config by remember { mutableStateOf(repo.getConfig()) }
     var audioFiles by remember { mutableStateOf(SalawatZipManager.getAudioFiles(context)) }
+    var lastAudioIndexState by remember { mutableStateOf(repo.getLastAudioIndex()) }
+    val nextSequentialIndex = remember(audioFiles, lastAudioIndexState) {
+        SalawatZipManager.getNextSequentialIndex(context)
+    }
     var playingAudioName by remember { mutableStateOf<String?>(null) }
     var isExtracting by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var isErrorMessage by remember { mutableStateOf(false) }
+
+    fun setNextAudioIndex(index: Int) {
+        val targetLastIndex = if (index <= 0) -1 else index - 1
+        repo.setLastAudioIndex(targetLastIndex)
+        lastAudioIndexState = targetLastIndex
+    }
 
     // Live ticking clock for persistent countdown calculation
     var currentMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -934,15 +945,50 @@ fun SalawatTabContent(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Option 1: Random
+                        // Option 1: Sequential (بالترتيب) - Default
+                        OutlinedButton(
+                            onClick = {
+                                updateConfig(config.copy(audioSelectionMode = "SEQUENTIAL"))
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                            colors = if (config.audioSelectionMode == "SEQUENTIAL") {
+                                ButtonDefaults.outlinedButtonColors(
+                                    containerColor = ProfessionalEmerald,
+                                    contentColor = Color.White
+                                )
+                            } else {
+                                ButtonDefaults.outlinedButtonColors(
+                                    containerColor = PolishSurface,
+                                    contentColor = PolishTextPrimary
+                                )
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Repeat,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = if (language == AppLanguage.ARABIC) "بالترتيب ﷺ" else "Sequential",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+
+                        // Option 2: Random (عشوائي)
                         OutlinedButton(
                             onClick = {
                                 updateConfig(config.copy(audioSelectionMode = "RANDOM"))
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
                             colors = if (config.audioSelectionMode == "RANDOM") {
                                 ButtonDefaults.outlinedButtonColors(
                                     containerColor = ProfessionalEmerald,
@@ -958,17 +1004,18 @@ fun SalawatTabContent(
                             Icon(
                                 imageVector = Icons.Default.Shuffle,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = if (language == AppLanguage.ARABIC) "عشوائي في كل مرة" else "Random Each Time",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
+                                text = if (language == AppLanguage.ARABIC) "عشوائي" else "Random",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
                             )
                         }
 
-                        // Option 2: Specific ("على مزاجي")
+                        // Option 3: Specific ("على مزاجي")
                         OutlinedButton(
                             onClick = {
                                 val firstAvailable = audioFiles.firstOrNull()?.name
@@ -982,6 +1029,7 @@ fun SalawatTabContent(
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
                             colors = if (config.audioSelectionMode == "SPECIFIC") {
                                 ButtonDefaults.outlinedButtonColors(
                                     containerColor = ProfessionalEmerald,
@@ -997,13 +1045,14 @@ fun SalawatTabContent(
                             Icon(
                                 imageVector = Icons.Default.Tune,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = if (language == AppLanguage.ARABIC) "صوت محدد على مزاجي" else "Specific Choice",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
+                                text = if (language == AppLanguage.ARABIC) "صوت محدد" else "Specific",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
                             )
                         }
                     }
@@ -1013,10 +1062,20 @@ fun SalawatTabContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (config.audioSelectionMode == "SPECIFIC") PolishGold.copy(alpha = 0.12f) else ProfessionalEmeraldTint)
+                            .background(
+                                when (config.audioSelectionMode) {
+                                    "SPECIFIC" -> PolishGold.copy(alpha = 0.12f)
+                                    "RANDOM" -> PolishIconBox
+                                    else -> ProfessionalEmeraldTint
+                                }
+                            )
                             .border(
                                 1.dp,
-                                if (config.audioSelectionMode == "SPECIFIC") PolishGold.copy(alpha = 0.4f) else ProfessionalEmeraldBorder,
+                                when (config.audioSelectionMode) {
+                                    "SPECIFIC" -> PolishGold.copy(alpha = 0.4f)
+                                    "RANDOM" -> PolishBorderLight
+                                    else -> ProfessionalEmeraldBorder
+                                },
                                 RoundedCornerShape(10.dp)
                             )
                             .padding(12.dp)
@@ -1032,26 +1091,50 @@ fun SalawatTabContent(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Icon(
-                                    imageVector = if (config.audioSelectionMode == "SPECIFIC") Icons.Default.CheckCircle else Icons.Default.Shuffle,
+                                    imageVector = when (config.audioSelectionMode) {
+                                        "SPECIFIC" -> Icons.Default.CheckCircle
+                                        "RANDOM" -> Icons.Default.Shuffle
+                                        else -> Icons.Default.Repeat
+                                    },
                                     contentDescription = null,
-                                    tint = if (config.audioSelectionMode == "SPECIFIC") PolishGold else ProfessionalEmerald,
+                                    tint = when (config.audioSelectionMode) {
+                                        "SPECIFIC" -> PolishGold
+                                        "RANDOM" -> PolishTextSecondary
+                                        else -> ProfessionalEmerald
+                                    },
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Column {
                                     Text(
-                                        text = if (config.audioSelectionMode == "SPECIFIC") {
-                                            if (language == AppLanguage.ARABIC) "الصوت المعتمد حالياً للتذكير:" else "Active Reminder Sound:"
-                                        } else {
-                                            if (language == AppLanguage.ARABIC) "الوضع النشط:" else "Active Mode:"
+                                        text = when (config.audioSelectionMode) {
+                                            "SPECIFIC" -> if (language == AppLanguage.ARABIC) "الصوت المعتمد حالياً للتذكير:" else "Active Reminder Sound:"
+                                            "RANDOM" -> if (language == AppLanguage.ARABIC) "الوضع النشط: عشوائي في كل تذكير" else "Active Mode: Random Each Time"
+                                            else -> if (language == AppLanguage.ARABIC) "الوضع النشط: بالترتيب (صوت مختلف كل مرة)" else "Active Mode: Sequential In Order"
                                         },
                                         fontSize = 11.sp,
                                         color = PolishTextSecondary
                                     )
                                     Text(
-                                        text = if (config.audioSelectionMode == "SPECIFIC") {
-                                            config.selectedAudioFileName ?: if (language == AppLanguage.ARABIC) "اختر صوتاً من القائمة أدناه" else "Pick a sound below"
-                                        } else {
-                                            if (language == AppLanguage.ARABIC) "اختيار عشوائي بين جميع الملفات المتوفرة (${audioFiles.size})" else "Random among all available files (${audioFiles.size})"
+                                        text = when (config.audioSelectionMode) {
+                                            "SPECIFIC" -> {
+                                                config.selectedAudioFileName ?: if (language == AppLanguage.ARABIC) "اختر صوتاً من القائمة أدناه" else "Pick a sound below"
+                                            }
+                                            "RANDOM" -> {
+                                                if (language == AppLanguage.ARABIC) "اختيار عشوائي بين جميع الملفات المتوفرة (${audioFiles.size})" else "Random among all available files (${audioFiles.size})"
+                                            }
+                                            else -> { // SEQUENTIAL
+                                                if (audioFiles.isNotEmpty()) {
+                                                    val nextAudio = audioFiles.getOrNull(nextSequentialIndex)
+                                                    val nameStr = nextAudio?.name ?: ""
+                                                    if (language == AppLanguage.ARABIC) {
+                                                        "التالي بالترتيب: (#${nextSequentialIndex + 1}/${audioFiles.size}) $nameStr"
+                                                    } else {
+                                                        "Next in order: (#${nextSequentialIndex + 1}/${audioFiles.size}) $nameStr"
+                                                    }
+                                                } else {
+                                                    if (language == AppLanguage.ARABIC) "سيعمل الترتيب فور استيراد ملفات ZIP" else "Order starts upon ZIP import"
+                                                }
+                                            }
                                         },
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
@@ -1062,8 +1145,65 @@ fun SalawatTabContent(
                                 }
                             }
 
-                            // Quick Action: Test or Reset to Random
-                            if (config.audioSelectionMode == "SPECIFIC" && !config.selectedAudioFileName.isNullOrEmpty()) {
+                            // Quick Actions on the active mode (Reset Order / Preview next)
+                            if (config.audioSelectionMode == "SEQUENTIAL" && audioFiles.isNotEmpty()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    // Reset order to #1
+                                    IconButton(
+                                        onClick = {
+                                            setNextAudioIndex(0)
+                                            Toast.makeText(
+                                                context,
+                                                if (language == AppLanguage.ARABIC) "تم ضبط الترتيب ليبدأ من الصوت الأول (#1)" else "Order reset to sound #1",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(PolishSurface)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Reset order",
+                                            tint = PolishTextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+
+                                    // Play next audio
+                                    val nextAudio = audioFiles.getOrNull(nextSequentialIndex)
+                                    if (nextAudio != null) {
+                                        IconButton(
+                                            onClick = {
+                                                if (playingAudioName == nextAudio.name) {
+                                                    MediaHelper.stopAudioPreview()
+                                                    playingAudioName = null
+                                                } else {
+                                                    playingAudioName = nextAudio.name
+                                                    MediaHelper.playAudioPreview(context, Uri.fromFile(nextAudio.file).toString()) {
+                                                        playingAudioName = null
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(CircleShape)
+                                                .background(ProfessionalEmerald)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (playingAudioName == nextAudio.name) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                                contentDescription = "Play Next",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            } else if (config.audioSelectionMode == "SPECIFIC" && !config.selectedAudioFileName.isNullOrEmpty()) {
                                 val selectedFile = SalawatZipManager.getAudioFileByName(context, config.selectedAudioFileName)
                                 if (selectedFile != null) {
                                     IconButton(
@@ -1132,32 +1272,48 @@ fun SalawatTabContent(
                         if (audioFiles.isNotEmpty()) {
                             OutlinedButton(
                                 onClick = {
-                                    val randomFile = SalawatZipManager.getRandomAudio(context)
-                                    if (randomFile != null) {
-                                        playingAudioName = randomFile.name
-                                        MediaHelper.playAudioPreview(context, Uri.fromFile(randomFile).toString()) {
+                                    val testAudio = when (config.audioSelectionMode) {
+                                        "SEQUENTIAL" -> SalawatZipManager.peekNextSequentialAudio(context)
+                                        "RANDOM" -> SalawatZipManager.getRandomAudio(context)
+                                        else -> {
+                                            if (!config.selectedAudioFileName.isNullOrEmpty()) {
+                                                SalawatZipManager.getAudioFileByName(context, config.selectedAudioFileName)
+                                            } else {
+                                                SalawatZipManager.peekNextSequentialAudio(context)
+                                            }
+                                        }
+                                    }
+                                    if (testAudio != null && testAudio.exists()) {
+                                        playingAudioName = testAudio.name
+                                        MediaHelper.playAudioPreview(context, Uri.fromFile(testAudio).toString()) {
                                             playingAudioName = null
                                         }
-                                        Toast.makeText(
-                                            context,
-                                            if (language == AppLanguage.ARABIC) "تشغيل عشوائي: ${randomFile.name}" else "Playing random: ${randomFile.name}",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        val toastLabel = when (config.audioSelectionMode) {
+                                            "SEQUENTIAL" -> if (language == AppLanguage.ARABIC) "تشغيل الصوت التالي بالترتيب: ${testAudio.name}" else "Playing next in order: ${testAudio.name}"
+                                            "RANDOM" -> if (language == AppLanguage.ARABIC) "تشغيل عشوائي: ${testAudio.name}" else "Playing random: ${testAudio.name}"
+                                            else -> if (language == AppLanguage.ARABIC) "تشغيل المعتمد: ${testAudio.name}" else "Playing selected: ${testAudio.name}"
+                                        }
+                                        Toast.makeText(context, toastLabel, Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Shuffle,
+                                    imageVector = if (config.audioSelectionMode == "SEQUENTIAL") Icons.Default.Repeat else Icons.Default.Shuffle,
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = PolishGold
+                                    modifier = Modifier.size(17.dp),
+                                    tint = if (config.audioSelectionMode == "SEQUENTIAL") ProfessionalEmerald else PolishGold
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = if (language == AppLanguage.ARABIC) "عشوائي" else "Random",
-                                    fontSize = 12.sp
+                                    text = when (config.audioSelectionMode) {
+                                        "SEQUENTIAL" -> if (language == AppLanguage.ARABIC) "تجربة التالي" else "Test Next"
+                                        "RANDOM" -> if (language == AppLanguage.ARABIC) "عشوائي" else "Random"
+                                        else -> if (language == AppLanguage.ARABIC) "تجربة" else "Test"
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
 
@@ -1168,6 +1324,7 @@ fun SalawatTabContent(
                                     playingAudioName = null
                                     audioFiles = emptyList()
                                     updateConfig(config.copy(selectedAudioFileName = null))
+                                    lastAudioIndexState = repo.getLastAudioIndex()
                                     statusMessage = if (language == AppLanguage.ARABIC) "تم حذف جميع الملفات الصوتية" else "All audio files deleted"
                                     isErrorMessage = false
                                 },
@@ -1297,27 +1454,41 @@ fun SalawatTabContent(
             }
         }
 
-        // 5. Extracted Audio Items List with Manual Selection
+        // 5. Extracted Audio Items List with Sequential / Manual Selection
         if (audioFiles.isNotEmpty()) {
-            items(audioFiles, key = { it.name }) { audioItem ->
+            itemsIndexed(audioFiles, key = { _, it -> it.name }) { index, audioItem ->
                 val isCurrentSelected = config.audioSelectionMode == "SPECIFIC" && config.selectedAudioFileName == audioItem.name
+                val isNextInSequence = config.audioSelectionMode == "SEQUENTIAL" && index == nextSequentialIndex
                 AudioItemRow(
+                    index = index,
+                    totalCount = audioFiles.size,
                     audioItem = audioItem,
                     isPlaying = playingAudioName == audioItem.name,
                     isSelected = isCurrentSelected,
+                    isNextInSequence = isNextInSequence,
+                    audioSelectionMode = config.audioSelectionMode,
                     language = language,
                     onSelect = {
-                        updateConfig(
-                            config.copy(
-                                audioSelectionMode = "SPECIFIC",
-                                selectedAudioFileName = audioItem.name
+                        if (config.audioSelectionMode == "SEQUENTIAL") {
+                            setNextAudioIndex(index)
+                            Toast.makeText(
+                                context,
+                                if (language == AppLanguage.ARABIC) "تم ضبط هذا الصوت ليكون التالي بالترتيب (#${index + 1})" else "Set as next in sequence (#${index + 1})",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            updateConfig(
+                                config.copy(
+                                    audioSelectionMode = "SPECIFIC",
+                                    selectedAudioFileName = audioItem.name
+                                )
                             )
-                        )
-                        Toast.makeText(
-                            context,
-                            if (language == AppLanguage.ARABIC) "تم اعتماد: ${audioItem.name}" else "Selected: ${audioItem.name}",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                            Toast.makeText(
+                                context,
+                                if (language == AppLanguage.ARABIC) "تم اعتماد: ${audioItem.name}" else "Selected: ${audioItem.name}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     },
                     onPlayToggle = {
                         if (playingAudioName == audioItem.name) {
@@ -1340,6 +1511,7 @@ fun SalawatTabContent(
                         if (config.selectedAudioFileName == audioItem.name) {
                             updateConfig(config.copy(selectedAudioFileName = null))
                         }
+                        lastAudioIndexState = repo.getLastAudioIndex()
                     }
                 )
             }
@@ -1384,14 +1556,20 @@ private fun CountdownUnitBox(
 
 @Composable
 private fun AudioItemRow(
+    index: Int,
+    totalCount: Int,
     audioItem: SalawatAudioItem,
     isPlaying: Boolean,
     isSelected: Boolean,
+    isNextInSequence: Boolean,
+    audioSelectionMode: String,
     language: AppLanguage,
     onSelect: () -> Unit,
     onPlayToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val isHighlighted = isSelected || isNextInSequence
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1400,14 +1578,16 @@ private fun AudioItemRow(
         colors = CardDefaults.cardColors(
             containerColor = when {
                 isSelected -> IslamicGoldPrimary.copy(alpha = 0.12f)
-                isPlaying -> ProfessionalEmeraldTint
+                isNextInSequence -> ProfessionalEmeraldTint
+                isPlaying -> ProfessionalEmeraldTint.copy(alpha = 0.5f)
                 else -> PolishSurfaceCard
             }
         ),
         border = androidx.compose.foundation.BorderStroke(
-            if (isSelected) 1.5.dp else 1.dp,
+            if (isHighlighted) 1.5.dp else 1.dp,
             when {
                 isSelected -> IslamicGoldPrimary
+                isNextInSequence -> ProfessionalEmerald
                 isPlaying -> ProfessionalEmerald
                 else -> PolishBorderLight
             }
@@ -1420,16 +1600,28 @@ private fun AudioItemRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Radio button / check icon
-            IconButton(
-                onClick = onSelect,
-                modifier = Modifier.size(32.dp)
+            // Sequence Number Badge / Selection indicator
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            isNextInSequence -> ProfessionalEmerald
+                            isSelected -> IslamicGoldPrimary
+                            else -> PolishIconBox
+                        }
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                    contentDescription = "Select Audio",
-                    tint = if (isSelected) IslamicGoldPrimary else PolishTextMuted,
-                    modifier = Modifier.size(22.dp)
+                Text(
+                    text = "${index + 1}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        isNextInSequence || isSelected -> Color.White
+                        else -> PolishTextSecondary
+                    }
                 )
             }
 
@@ -1454,7 +1646,7 @@ private fun AudioItemRow(
                 Text(
                     text = audioItem.name,
                     fontSize = 13.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
                     color = PolishTextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1468,7 +1660,21 @@ private fun AudioItemRow(
                         fontSize = 11.sp,
                         color = PolishTextMuted
                     )
-                    if (isSelected) {
+                    if (isNextInSequence && audioSelectionMode == "SEQUENTIAL") {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(ProfessionalEmerald.copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = if (language == AppLanguage.ARABIC) "✓ التالي بالترتيب" else "✓ Next In Order",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ProfessionalEmeraldDark
+                            )
+                        }
+                    } else if (isSelected) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))

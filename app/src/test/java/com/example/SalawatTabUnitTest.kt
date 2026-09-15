@@ -146,6 +146,80 @@ class SalawatTabUnitTest {
     }
 
     @Test
+    fun testSalawatSequentialAudioPlayback() {
+        // Create a mock zip file with 3 audio files
+        val zipFile = File(context.cacheDir, "test_salawat_seq.zip")
+        ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
+            zos.putNextEntry(ZipEntry("01_audio_a.mp3"))
+            zos.write("Content A".toByteArray())
+            zos.closeEntry()
+
+            zos.putNextEntry(ZipEntry("02_audio_b.mp3"))
+            zos.write("Content B".toByteArray())
+            zos.closeEntry()
+
+            zos.putNextEntry(ZipEntry("03_audio_c.mp3"))
+            zos.write("Content C".toByteArray())
+            zos.closeEntry()
+        }
+
+        SalawatZipManager.extractSalawatZip(context, Uri.fromFile(zipFile), replaceExisting = true)
+        val files = SalawatZipManager.getAudioFiles(context)
+        assertEquals(3, files.size)
+
+        // Reset index
+        repo.resetLastAudioIndex()
+        assertEquals(-1, repo.getLastAudioIndex())
+
+        // Next sequential index should be 0
+        assertEquals(0, SalawatZipManager.getNextSequentialIndex(context))
+
+        // Peeking should not advance index
+        val peek1 = SalawatZipManager.peekNextSequentialAudio(context)
+        assertNotNull(peek1)
+        assertEquals(files[0].file.name, peek1!!.name)
+        assertEquals(-1, repo.getLastAudioIndex())
+
+        val seqConfig = SalawatConfig(audioSelectionMode = "SEQUENTIAL")
+
+        // 1st play: should play audio 0 and advance index
+        val audio1 = SalawatZipManager.getEffectiveAudio(context, seqConfig, advanceSequence = true)
+        assertNotNull(audio1)
+        assertEquals(files[0].file.name, audio1!!.name)
+        assertEquals(0, repo.getLastAudioIndex())
+        assertEquals(1, SalawatZipManager.getNextSequentialIndex(context))
+
+        // 2nd play: should play audio 1 and advance index
+        val audio2 = SalawatZipManager.getEffectiveAudio(context, seqConfig, advanceSequence = true)
+        assertNotNull(audio2)
+        assertEquals(files[1].file.name, audio2!!.name)
+        assertEquals(1, repo.getLastAudioIndex())
+        assertEquals(2, SalawatZipManager.getNextSequentialIndex(context))
+
+        // 3rd play: should play audio 2 and advance index
+        val audio3 = SalawatZipManager.getEffectiveAudio(context, seqConfig, advanceSequence = true)
+        assertNotNull(audio3)
+        assertEquals(files[2].file.name, audio3!!.name)
+        assertEquals(2, repo.getLastAudioIndex())
+        // Should wrap around to 0
+        assertEquals(0, SalawatZipManager.getNextSequentialIndex(context))
+
+        // 4th play: should wrap around to audio 0
+        val audio4 = SalawatZipManager.getEffectiveAudio(context, seqConfig, advanceSequence = true)
+        assertNotNull(audio4)
+        assertEquals(files[0].file.name, audio4!!.name)
+        assertEquals(0, repo.getLastAudioIndex())
+
+        // Test manual set next audio index
+        // Set to play audio 2 next
+        repo.setLastAudioIndex(1)
+        assertEquals(2, SalawatZipManager.getNextSequentialIndex(context))
+        val audioManual = SalawatZipManager.getEffectiveAudio(context, seqConfig, advanceSequence = true)
+        assertNotNull(audioManual)
+        assertEquals(files[2].file.name, audioManual!!.name)
+    }
+
+    @Test
     fun testSalawatPersistentNotificationBuilding() {
         val nextTime = System.currentTimeMillis() + 15 * 60 * 1000L
         val notification = com.example.notifications.PrayerNotificationHelper.buildSalawatPersistentNotification(context, nextTime)

@@ -80,14 +80,62 @@ object SalawatZipManager {
         return files.firstOrNull { it.name == fileName || it.name.endsWith("_$fileName") || it.name.endsWith(fileName) }
     }
 
-    fun getEffectiveAudio(context: Context, config: com.example.data.SalawatConfig): File? {
+    /**
+     * Returns the 0-based index of the next audio that will play in sequential order.
+     */
+    fun getNextSequentialIndex(context: Context): Int {
+        val items = getAudioFiles(context)
+        if (items.isEmpty()) return -1
+        val repo = com.example.data.SalawatPreferencesRepository(context)
+        val lastIndex = repo.getLastAudioIndex()
+        return if (lastIndex < 0 || lastIndex >= items.size - 1) 0 else lastIndex + 1
+    }
+
+    /**
+     * Gets the next audio file in sequential order.
+     * When advanceIndex is true, increments and saves the sequence pointer.
+     */
+    fun getNextSequentialAudio(context: Context, advanceIndex: Boolean = true): File? {
+        val items = getAudioFiles(context)
+        if (items.isEmpty()) return null
+        val nextIndex = getNextSequentialIndex(context)
+        if (nextIndex < 0 || nextIndex >= items.size) return items.first().file
+        if (advanceIndex) {
+            val repo = com.example.data.SalawatPreferencesRepository(context)
+            repo.setLastAudioIndex(nextIndex)
+        }
+        return items[nextIndex].file
+    }
+
+    /**
+     * Peeks at the next sequential audio file without advancing the index.
+     */
+    fun peekNextSequentialAudio(context: Context): File? {
+        return getNextSequentialAudio(context, advanceIndex = false)
+    }
+
+    /**
+     * Retrieves the effective audio based on the active mode:
+     * - SEQUENTIAL (default): plays sounds in order, next one each time
+     * - RANDOM: picks a random sound
+     * - SPECIFIC: plays user's custom chosen sound
+     */
+    fun getEffectiveAudio(
+        context: Context,
+        config: com.example.data.SalawatConfig,
+        advanceSequence: Boolean = true
+    ): File? {
         if (config.audioSelectionMode == "SPECIFIC" && !config.selectedAudioFileName.isNullOrBlank()) {
             val specific = getAudioFileByName(context, config.selectedAudioFileName)
             if (specific != null && specific.exists() && specific.length() > 0) {
                 return specific
             }
         }
-        return getRandomAudio(context)
+        if (config.audioSelectionMode == "RANDOM") {
+            return getRandomAudio(context)
+        }
+        // Default: SEQUENTIAL
+        return getNextSequentialAudio(context, advanceIndex = advanceSequence)
     }
 
     fun deleteAudio(file: File): Boolean {
@@ -104,6 +152,7 @@ object SalawatZipManager {
             val dir = getSalawatAudioDirectory(context)
             dir.deleteRecursively()
             dir.mkdirs()
+            com.example.data.SalawatPreferencesRepository(context).resetLastAudioIndex()
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear all audios: ${e.message}")

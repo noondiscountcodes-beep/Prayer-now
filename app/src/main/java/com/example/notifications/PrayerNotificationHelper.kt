@@ -198,10 +198,29 @@ object PrayerNotificationHelper {
         val timeFormat = SimpleDateFormat("hh:mm a", if (isArabic) Locale("ar") else Locale.US)
         val targetClockTime = timeFormat.format(cal.time)
 
-        val audioDesc = if (config.audioSelectionMode == "SPECIFIC" && !config.selectedAudioFileName.isNullOrEmpty()) {
-            if (isArabic) "الصوت: ${config.selectedAudioFileName}" else "Audio: ${config.selectedAudioFileName}"
-        } else {
-            if (isArabic) "الصوت: عشوائي من ملف الـ ZIP" else "Audio: Random from ZIP"
+        val audioDesc = when (config.audioSelectionMode) {
+            "SPECIFIC" -> {
+                if (!config.selectedAudioFileName.isNullOrEmpty()) {
+                    if (isArabic) "الصوت: ${config.selectedAudioFileName}" else "Audio: ${config.selectedAudioFileName}"
+                } else {
+                    if (isArabic) "الصوت: صوت محدد" else "Audio: Specific"
+                }
+            }
+            "RANDOM" -> {
+                if (isArabic) "الصوت: عشوائي من ملف الـ ZIP" else "Audio: Random from ZIP"
+            }
+            else -> { // SEQUENTIAL
+                val nextAudio = com.example.media.SalawatZipManager.peekNextSequentialAudio(context)
+                val audioName = nextAudio?.name?.substringAfterLast('_') ?: nextAudio?.name
+                val totalAudios = com.example.media.SalawatZipManager.getAudioFiles(context).size
+                val nextIdx = com.example.media.SalawatZipManager.getNextSequentialIndex(context)
+                if (audioName != null && totalAudios > 0) {
+                    if (isArabic) "الصوت بالترتيب (${nextIdx + 1}/$totalAudios: $audioName)"
+                    else "Audio in order (${nextIdx + 1}/$totalAudios: $audioName)"
+                } else {
+                    if (isArabic) "الصوت: بالترتيب (صوت مختلف في كل مرة)" else "Audio: Sequential in order"
+                }
+            }
         }
 
         val chronometerBase = SystemClock.elapsedRealtime() + diffMillis
